@@ -1,4 +1,4 @@
-# Nutrime - Food Tracking Web Application
+# Nutrivalor - Food Tracking Web Application
 
 A modern, responsive web application for tracking food nutrition, managing meal plans, and organizing shopping lists. Built with vanilla JavaScript and designed to work with Supabase for database and authentication.
 
@@ -150,13 +150,13 @@ Deploy your app to any static hosting service:
 ## 📁 Project Structure
 
 ```
-nutrime/
+nutrivalor/
 ├── index.html              # Main application file
 ├── package.json            # Project dependencies
 ├── README.md              # This file
 └── src/
     ├── assets/
-    │   └── nutrime.png    # Application logo
+    │   └── nutrime.png    # Application logo (kept as nutrime.png for compatibility)
     ├── styles/
     │   └── main.css       # Application styles
     └── js/
@@ -215,7 +215,7 @@ nutrime/
 
 ## 📞 Support
 
-If you need help setting up or using Nutrime:
+If you need help setting up or using Nutrivalor:
 1. Check the browser console for any error messages
 2. Ensure your Supabase configuration is correct
 3. Try using the app with localStorage fallback first
@@ -237,4 +237,4 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ---
 
-**Nutrime** - Your Personal Food Tracking Companion 🥗✨ 
+**Nutrivalor** - Your Personal Food Tracking Companion 🥗✨ 
