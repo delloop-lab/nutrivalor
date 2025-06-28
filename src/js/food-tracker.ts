@@ -30,8 +30,8 @@ function setupFoodTrackerEventListeners(): void {
 }
 
 function setupCategoryFilters(): void {
-  // Implementation for category filtering will be added
-  console.log('Setting up category filters...');
+  // Category filtering will be set up after foods are loaded
+  console.log('Category filters will be initialized after loading foods...');
 }
 
 function setupSearchFunctionality(): void {
@@ -39,16 +39,73 @@ function setupSearchFunctionality(): void {
   console.log('Setting up search functionality...');
 }
 
+// Store all foods for filtering
+let allFoods: any[] = [];
+
 export async function loadAndDisplayFoods(): Promise<void> {
   try {
     console.log('📊 Loading foods from database...');
     const foods = await loadFoodsFromDatabase();
     console.log(`📊 Loaded ${foods.length} foods from database`);
+    
+    // Store all foods for filtering
+    allFoods = foods;
+    
+    // Update category filters
+    updateCategoryFilters(foods);
+    
+    // Display all foods initially
     displayFoods(foods);
   } catch (error) {
     console.error('❌ Error loading foods:', error);
     showMessage('Error loading foods: ' + (error as Error).message, 'error');
   }
+}
+
+function updateCategoryFilters(foods: any[]): void {
+  const categoryFiltersContainer = document.querySelector('.category-filters');
+  if (!categoryFiltersContainer) return;
+
+  // Extract unique categories
+  const categories = ['all', ...new Set(foods.map(food => food.category || 'General'))];
+  
+  // Generate filter buttons
+  categoryFiltersContainer.innerHTML = categories.map(category => {
+    const isActive = category === 'all' ? 'active' : '';
+    const displayName = category === 'all' ? 'All' : category;
+    return `
+      <button class="filter-btn ${isActive}" onclick="filterByCategory('${category}')" data-category="${category}">
+        ${displayName}
+      </button>
+    `;
+  }).join('');
+  
+  console.log(`✅ Created filters for categories: ${categories.join(', ')}`);
+}
+
+export function filterByCategory(category: string): void {
+  console.log(`🔍 Filtering by category: ${category}`);
+  
+  // Update active button
+  document.querySelectorAll('.filter-btn').forEach(btn => {
+    btn.classList.remove('active');
+  });
+  
+  const activeBtn = document.querySelector(`[data-category="${category}"]`);
+  if (activeBtn) {
+    activeBtn.classList.add('active');
+  }
+  
+  // Filter foods
+  let filteredFoods = allFoods;
+  if (category !== 'all') {
+    filteredFoods = allFoods.filter(food => 
+      (food.category || 'General').toLowerCase() === category.toLowerCase()
+    );
+  }
+  
+  console.log(`📊 Filtered to ${filteredFoods.length} foods`);
+  displayFoods(filteredFoods);
 }
 
 export function displayFoods(foods: any[]): void {
@@ -336,3 +393,4 @@ declare global {
 }
 
 window.addToShoppingList = addToShoppingList;
+window.filterByCategory = filterByCategory;

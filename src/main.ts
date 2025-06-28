@@ -3,6 +3,13 @@ import { initializeSupabase } from './js/supabase-client';
 import { initializeAuth } from './js/auth';
 import { initializeDatabase } from './js/database';
 import { initializeFoodTracker } from './js/food-tracker';
+import { 
+  initializeMeals, 
+  loadAndDisplayMeals, 
+  displayMeals, 
+  handleMealFileUpload, 
+  addMeal 
+} from './js/meals';
 
 // Initialize the application
 async function initializeApp(): Promise<void> {
@@ -46,10 +53,21 @@ function setupGlobalFunctions(): void {
   (window as any).showSection = showSection;
   
   // Other functions that might be called from HTML
-  (window as any).filterByCategory = filterByCategory;
+  // filterByCategory is handled by food-tracker module
   (window as any).updateProfile = updateProfile;
   (window as any).exportData = exportData;
   (window as any).clearAllData = clearAllData;
+  
+  // Meal functions
+  (window as any).filterMealsByCategory = filterMealsByCategory;
+  (window as any).addToMealPlan = addToMealPlan;
+  (window as any).removePlannedMeal = removePlannedMeal;
+  (window as any).generateMealPlan = generateMealPlan;
+  (window as any).editMeal = editMeal;
+  (window as any).deleteMeal = deleteMeal;
+  
+  // Shopping list functions
+  (window as any).clearShoppingList = clearShoppingList;
   
   console.log('✅ Global functions setup complete');
 }
@@ -115,10 +133,6 @@ function showSection(sectionId: string): void {
 }
 
 // Placeholder functions (to be implemented)
-function filterByCategory(category: string): void {
-  console.log(`🔍 Filter by category: ${category}`);
-  // Implementation will be added
-}
 
 function updateProfile(): void {
   console.log('👤 Update profile');
@@ -132,6 +146,43 @@ function exportData(): void {
 
 function clearAllData(): void {
   console.log('🗑️ Clear all data');
+  // Implementation will be added
+}
+
+// Meal-related functions (placeholder implementations)
+function filterMealsByCategory(category: string): void {
+  console.log(`🔍 Filter meals by category: ${category}`);
+  // Implementation will be added
+}
+
+function addToMealPlan(mealId: string): void {
+  console.log(`🍽️ Add meal to plan: ${mealId}`);
+  // Implementation will be added
+}
+
+function removePlannedMeal(date: string, mealType: string, mealId: string): void {
+  console.log(`🗑️ Remove planned meal: ${mealId} from ${mealType} on ${date}`);
+  // Implementation will be added
+}
+
+function generateMealPlan(): void {
+  console.log('📅 Generate meal plan');
+  // Implementation will be added
+}
+
+function editMeal(mealId: string): void {
+  console.log(`✏️ Edit meal: ${mealId}`);
+  // Implementation will be added
+}
+
+function deleteMeal(mealId: string): void {
+  console.log(`🗑️ Delete meal: ${mealId}`);
+  // Implementation will be added
+}
+
+// Shopping list functions
+function clearShoppingList(): void {
+  console.log('🗑️ Clear shopping list');
   // Implementation will be added
 }
 

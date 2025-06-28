@@ -120,14 +120,14 @@ function displayMeals() {
 }
 
 // Filter meals by category
-function filterMealsByCategory(category) {
+export function filterMealsByCategory(category: string): void {
     // Implementation for filtering meals
     console.log('Filtering meals by category:', category);
 }
 
 // Add meal to meal plan
-function addToMealPlan(mealId) {
-    const meal = mealData.find(m => m.id === mealId);
+export function addToMealPlan(mealId: string): void {
+    const meal = mealData.find((m: any) => m.id === mealId);
     
     if (!meal) {
         showMessage('Meal not found', 'error');
@@ -154,13 +154,14 @@ function addToMealPlan(mealId) {
     showMessage(`Added ${meal.name} to today's breakfast`, 'success');
     
     // Update meal plan display if we're on that section
+    const currentSection = 'meal-plan'; // This should come from a global state
     if (currentSection === 'meal-plan') {
         displayMealPlan();
     }
 }
 
 // Display meal plan
-function displayMealPlan() {
+export function displayMealPlan(): void {
     const mealPlanGrid = document.getElementById('mealPlanGrid');
     if (!mealPlanGrid) return;
     
@@ -179,9 +180,9 @@ function displayMealPlan() {
             <h3>Today's Meal Plan - ${new Date().toLocaleDateString()}</h3>
             ${mealTypes.map(mealType => {
                 const meals = todaysPlan[mealType] || [];
-                const totalCarbs = meals.reduce((sum, meal) => sum + (meal.carbs || 0), 0);
-                const totalFat = meals.reduce((sum, meal) => sum + (meal.fat || 0), 0);
-                const totalProtein = meals.reduce((sum, meal) => sum + (meal.protein || 0), 0);
+                const totalCarbs = meals.reduce((sum: number, meal: any) => sum + (meal.carbs || 0), 0);
+                const totalFat = meals.reduce((sum: number, meal: any) => sum + (meal.fat || 0), 0);
+                const totalProtein = meals.reduce((sum: number, meal: any) => sum + (meal.protein || 0), 0);
                 
                 return `
                     <div class="meal-type-section">
@@ -193,7 +194,7 @@ function displayMealPlan() {
                         </div>
                         <div class="planned-meals">
                             ${meals.length === 0 ? '<p class="empty-meal-type">No meals planned</p>' : ''}
-                            ${meals.map(meal => `
+                            ${meals.map((meal: any) => `
                                 <div class="planned-meal-item">
                                     <span class="meal-name">${meal.name}</span>
                                     <button onclick="removePlannedMeal('${today}', '${mealType}', '${meal.id}')" class="remove-btn-small">×</button>
@@ -207,40 +208,46 @@ function displayMealPlan() {
     `;
 }
 
-// Remove planned meal
-function removePlannedMeal(date, mealType, mealId) {
+export function removePlannedMeal(date: string, mealType: string, mealId: string): void {
     if (mealPlan[date] && mealPlan[date][mealType]) {
-        mealPlan[date][mealType] = mealPlan[date][mealType].filter(meal => meal.id !== mealId);
+        mealPlan[date][mealType] = mealPlan[date][mealType].filter((meal: any) => meal.id !== mealId);
         localStorage.setItem('nutrime_meal_plan', JSON.stringify(mealPlan));
         displayMealPlan();
-        showMessage('Meal removed from plan', 'success');
+        showMessage('Removed meal from plan', 'success');
     }
 }
 
-// Generate meal plan
-function generateMealPlan() {
+export function generateMealPlan(): void {
+    // Simple meal plan generation
+    const today = new Date().toISOString().split('T')[0];
+    
     if (mealData.length === 0) {
-        showMessage('No meals available. Please upload meal data first.', 'error');
+        showMessage('Please upload meal data first', 'error');
         return;
     }
     
-    const today = new Date().toISOString().split('T')[0];
+    // Generate a simple plan with random meals
+    if (!mealPlan[today]) {
+        mealPlan[today] = {
+            breakfast: [],
+            lunch: [], 
+            dinner: [],
+            snacks: []
+        };
+    }
     
-    // Simple meal plan generation - randomly select meals
-    const breakfast = mealData[Math.floor(Math.random() * mealData.length)];
-    const lunch = mealData[Math.floor(Math.random() * mealData.length)];
-    const dinner = mealData[Math.floor(Math.random() * mealData.length)];
-    
-    mealPlan[today] = {
-        breakfast: [breakfast],
-        lunch: [lunch],
-        dinner: [dinner],
-        snacks: []
-    };
+    // Add random meals to each meal type
+    const mealTypes = ['breakfast', 'lunch', 'dinner'];
+    mealTypes.forEach(mealType => {
+        if (mealPlan[today][mealType].length === 0 && mealData.length > 0) {
+            const randomMeal = mealData[Math.floor(Math.random() * mealData.length)];
+            mealPlan[today][mealType].push(randomMeal);
+        }
+    });
     
     localStorage.setItem('nutrime_meal_plan', JSON.stringify(mealPlan));
     displayMealPlan();
-    showMessage('Meal plan generated for today!', 'success');
+    showMessage('Meal plan generated!', 'success');
 }
 
 // Load meal plan from storage
@@ -366,4 +373,19 @@ function showMessage(message: string, type: 'success' | 'error' = 'success'): vo
   setTimeout(() => {
     if (messageEl) messageEl.style.display = 'none';
   }, 3000);
+}
+
+export function editMeal(mealId: string): void {
+    console.log('Edit meal:', mealId);
+    showMessage('Edit meal functionality coming soon', 'success');
+}
+
+export function deleteMeal(mealId: string): void {
+    const mealIndex = mealData.findIndex((m: any) => m.id === mealId);
+    if (mealIndex !== -1) {
+        mealData.splice(mealIndex, 1);
+        localStorage.setItem('nutrime_meals', JSON.stringify(mealData));
+        displayMeals(mealData);
+        showMessage('Meal deleted', 'success');
+    }
 }
