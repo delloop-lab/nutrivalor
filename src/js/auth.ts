@@ -13,26 +13,38 @@ export async function initializeAuth(): Promise<void> {
 
 // Set up event listeners
 function setupEventListeners(): void {
-  // Auth form handlers
-  const loginForm = document.getElementById('loginForm') as HTMLFormElement;
-  const signupForm = document.getElementById('signupForm') as HTMLFormElement;
-  const forgotForm = document.getElementById('forgotForm') as HTMLFormElement;
+  // Auth form handlers - target the actual form elements inside the containers
+  const loginForm = document.querySelector('#loginForm form') as HTMLFormElement;
+  const signupForm = document.querySelector('#signupForm form') as HTMLFormElement;
+  const forgotForm = document.querySelector('#forgotForm form') as HTMLFormElement;
   const logoutBtn = document.getElementById('logoutBtn') as HTMLButtonElement;
 
   if (loginForm) {
     loginForm.addEventListener('submit', handleLogin);
+    console.log('✅ Login form event listener attached');
+  } else {
+    console.warn('❌ Login form not found');
   }
   
   if (signupForm) {
     signupForm.addEventListener('submit', handleSignup);
+    console.log('✅ Signup form event listener attached');
+  } else {
+    console.warn('❌ Signup form not found');
   }
   
   if (forgotForm) {
     forgotForm.addEventListener('submit', handleForgotPassword);
+    console.log('✅ Forgot password form event listener attached');
+  } else {
+    console.warn('❌ Forgot password form not found');
   }
   
   if (logoutBtn) {
     logoutBtn.addEventListener('click', handleLogout);
+    console.log('✅ Logout button event listener attached');
+  } else {
+    console.warn('❌ Logout button not found');
   }
 
   // Auth tab buttons
@@ -47,7 +59,10 @@ function setupEventListeners(): void {
   // Forgot password link
   const forgotLink = document.querySelector('[data-forgot-password]');
   if (forgotLink) {
-    forgotLink.addEventListener('click', showForgotPassword);
+    forgotLink.addEventListener('click', (e) => {
+      e.preventDefault();
+      showForgotPassword();
+    });
   }
 }
 
