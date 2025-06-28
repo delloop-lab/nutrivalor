@@ -8,8 +8,9 @@ const SUPABASE_ANON_KEY = 'your-anon-key-here';
 
 // INSTRUCTIONS: 
 // 1. Go to https://supabase.com → New Project
-// 2. Copy your Project URL and Anon Key from Settings → API  
-// 3. Replace the values above
+// 2. Name your project: "nutrivalor"
+// 3. Copy your Project URL and Anon Key from Settings → API  
+// 4. Replace the values above
 
 // Initialize Supabase client
 let supabase;
@@ -42,7 +43,7 @@ function createLocalStorageFallback() {
     return {
         auth: {
             signUp: async ({ email, password, options = {} }) => {
-                const users = JSON.parse(localStorage.getItem('nutrime_users') || '[]');
+                const users = JSON.parse(localStorage.getItem('nutrivalor_users') || '[]');
                 const existingUser = users.find(u => u.email === email);
                 
                 if (existingUser) {
@@ -57,14 +58,14 @@ function createLocalStorageFallback() {
                 };
                 
                 users.push({ ...user, password });
-                localStorage.setItem('nutrime_users', JSON.stringify(users));
-                localStorage.setItem('nutrime_current_user', JSON.stringify(user));
+                localStorage.setItem('nutrivalor_users', JSON.stringify(users));
+                localStorage.setItem('nutrivalor_current_user', JSON.stringify(user));
                 
                 return { data: { user }, error: null };
             },
             
             signInWithPassword: async ({ email, password }) => {
-                const users = JSON.parse(localStorage.getItem('nutrime_users') || '[]');
+                const users = JSON.parse(localStorage.getItem('nutrivalor_users') || '[]');
                 const user = users.find(u => u.email === email && u.password === password);
                 
                 if (!user) {
@@ -73,13 +74,13 @@ function createLocalStorageFallback() {
                 
                 const userWithoutPassword = { ...user };
                 delete userWithoutPassword.password;
-                localStorage.setItem('nutrime_current_user', JSON.stringify(userWithoutPassword));
+                localStorage.setItem('nutrivalor_current_user', JSON.stringify(userWithoutPassword));
                 
                 return { data: { user: userWithoutPassword }, error: null };
             },
             
             signOut: async () => {
-                localStorage.removeItem('nutrime_current_user');
+                localStorage.removeItem('nutrivalor_current_user');
                 return { error: null };
             },
             
@@ -89,14 +90,14 @@ function createLocalStorageFallback() {
             },
             
             getUser: async () => {
-                const user = JSON.parse(localStorage.getItem('nutrime_current_user') || 'null');
+                const user = JSON.parse(localStorage.getItem('nutrivalor_current_user') || 'null');
                 return { data: { user }, error: null };
             },
             
             onAuthStateChange: (callback) => {
                 // Simple implementation for localStorage fallback
                 const checkAuthState = () => {
-                    const user = JSON.parse(localStorage.getItem('nutrime_current_user') || 'null');
+                    const user = JSON.parse(localStorage.getItem('nutrivalor_current_user') || 'null');
                     callback(user ? 'SIGNED_IN' : 'SIGNED_OUT', { user });
                 };
                 
@@ -105,7 +106,7 @@ function createLocalStorageFallback() {
                 
                 // Listen for storage changes
                 window.addEventListener('storage', (e) => {
-                    if (e.key === 'nutrime_current_user') {
+                    if (e.key === 'nutrivalor_current_user') {
                         checkAuthState();
                     }
                 });
@@ -120,13 +121,13 @@ function createLocalStorageFallback() {
             select: (columns = '*') => ({
                 eq: (column, value) => ({
                     async single() {
-                        const data = JSON.parse(localStorage.getItem(`nutrime_${table}`) || '[]');
+                        const data = JSON.parse(localStorage.getItem(`nutrivalor_${table}`) || '[]');
                         const item = data.find(item => item[column] === value);
                         return { data: item, error: null };
                     }
                 }),
                 async then(callback) {
-                    const data = JSON.parse(localStorage.getItem(`nutrime_${table}`) || '[]');
+                    const data = JSON.parse(localStorage.getItem(`nutrivalor_${table}`) || '[]');
                     const result = { data, error: null };
                     if (callback) callback(result);
                     return result;

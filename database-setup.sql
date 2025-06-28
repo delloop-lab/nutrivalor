@@ -1,4 +1,4 @@
--- Nutrime Database Setup Script
+-- Nutrivalor Database Setup Script
 -- Run this in your Supabase SQL Editor
 
 -- Foods table
