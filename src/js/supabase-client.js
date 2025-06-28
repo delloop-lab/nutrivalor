@@ -3,8 +3,8 @@
 
 // Replace these with your actual Supabase credentials
 // Get them from: https://app.supabase.com/project/[your-project]/settings/api
-const SUPABASE_URL = 'https://your-project-id.supabase.co';
-const SUPABASE_ANON_KEY = 'your-anon-key-here';
+const SUPABASE_URL = 'https://ehutpsrutyiorhqrwstz.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVodXRwc3J1dHlpb3JocXJ3c3R6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTExMTMyNzQsImV4cCI6MjA2NjY4OTI3NH0.lcfz59Uc2S6q9Mn2lj2OC_WAMG5CncrNbEnHX7MFTeI';
 
 // INSTRUCTIONS: 
 // 1. Go to https://supabase.com → New Project
