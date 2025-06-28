@@ -1,8 +1,15 @@
 // Supabase Client Configuration
 // You'll need to replace these with your actual Supabase project details
 
+// Replace these with your actual Supabase credentials
+// Get them from: https://app.supabase.com/project/[your-project]/settings/api
 const SUPABASE_URL = 'https://your-project-id.supabase.co';
 const SUPABASE_ANON_KEY = 'your-anon-key-here';
+
+// INSTRUCTIONS: 
+// 1. Go to https://supabase.com → New Project
+// 2. Copy your Project URL and Anon Key from Settings → API  
+// 3. Replace the values above
 
 // Initialize Supabase client
 let supabase;
