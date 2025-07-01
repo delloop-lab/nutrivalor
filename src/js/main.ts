@@ -1,4 +1,9 @@
 // Main Application Module for NutriValor
+import { displayFoods, loadAndDisplayFoods } from './food-tracker.js';
+import { initializeMeals } from './meals.js';
+import { loadAndDisplayShoppingList } from './shopping-list.js';
+import { saveAllFoodsToDatabase, saveMealToDatabase } from './database.js';
+
 let currentSection = 'food-tracker';
 
 // Application initialization
@@ -57,19 +62,19 @@ function showSection(sectionId) {
 function loadSectionData(sectionId) {
     switch (sectionId) {
         case 'food-tracker':
-            displayFoods();
+            loadAndDisplayFoods();
             break;
         case 'meals':
-            displayMeals();
+            initializeMeals();
             break;
         case 'shopping-list':
-            displayShoppingList();
+            loadAndDisplayShoppingList();
             break;
         case 'weight-tracker':
             // Weight tracker initializes automatically when section is shown
             break;
         case 'meal-plan':
-            displayMealPlan();
+            // displayMealPlan(); // TODO: Implement meal plan display
             break;
     }
 }
@@ -130,10 +135,10 @@ async function handleFoodFileUpload(event) {
         
         if (foods && foods.length > 0) {
             // Save to database
-            await saveFoodsToDatabase(foods);
+            await saveAllFoodsToDatabase(foods);
             
             // Update display
-            displayFoods();
+            loadAndDisplayFoods();
             
             // Close modal
             closeUploadModal();
@@ -160,11 +165,13 @@ async function handleMealFileUpload(event) {
         const meals = await parseMealExcelFile(file);
         
         if (meals && meals.length > 0) {
-            // Save to database
-            await saveMealsToDatabase(meals);
+            // Save to database (loop through meals since we don't have saveAllMealsToDatabase)
+            for (const meal of meals) {
+                await saveMealToDatabase(meal);
+            }
             
             // Update display
-            displayMeals();
+            initializeMeals();
             
             // Close modal
             closeMealUploadModal();
