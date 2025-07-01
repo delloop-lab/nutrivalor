@@ -1,4 +1,4 @@
--- Nutrivalor Database Setup Script
+-- NutriValor Database Setup Script
 -- Run this in your Supabase SQL Editor
 
 -- Foods table
@@ -15,15 +15,20 @@ CREATE TABLE IF NOT EXISTS foods (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Meals table
+-- Meals table - Updated for carfabio meal structure
 CREATE TABLE IF NOT EXISTS meals (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+    number TEXT NOT NULL,
     name TEXT NOT NULL,
-    carbs DECIMAL DEFAULT 0,
-    fat DECIMAL DEFAULT 0,
-    protein DECIMAL DEFAULT 0,
-    image_url TEXT,
+    meal_type TEXT DEFAULT 'OTHER',
+    ingredients JSONB,
+    total_carbs DECIMAL DEFAULT 0,
+    total_fat DECIMAL DEFAULT 0,
+    total_protein DECIMAL DEFAULT 0,
+    picture TEXT,
+    start_row INTEGER,
+    end_row INTEGER,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -91,4 +96,5 @@ CREATE POLICY "Users can delete own shopping_list" ON shopping_list
 CREATE INDEX IF NOT EXISTS foods_user_id_idx ON foods(user_id);
 CREATE INDEX IF NOT EXISTS foods_category_idx ON foods(category);
 CREATE INDEX IF NOT EXISTS meals_user_id_idx ON meals(user_id);
+CREATE INDEX IF NOT EXISTS meals_meal_type_idx ON meals(meal_type);
 CREATE INDEX IF NOT EXISTS shopping_list_user_id_idx ON shopping_list(user_id); 

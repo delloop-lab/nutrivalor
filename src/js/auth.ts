@@ -1,7 +1,7 @@
 import { supabase, getCurrentUser, localStorageWrapper } from './supabase-client';
 import type { User } from '@supabase/supabase-js';
 
-// Authentication Module for Nutrivalor
+// Authentication Module for NutriValor
 let currentUser: User | null = null;
 
 // Initialize authentication
@@ -141,8 +141,42 @@ function showMainApp(): void {
 // Update user info in header
 function updateUserInfo(user: User): void {
   const userEmailElement = document.getElementById('userEmail');
+  const headerAvatar = document.getElementById('headerAvatar') as HTMLImageElement;
+  const headerAvatarPlaceholder = document.getElementById('headerAvatarPlaceholder');
+  
   if (userEmailElement) {
-    userEmailElement.textContent = user.email || 'User';
+    // Try to get name from saved profile first, then fallback to email
+    const savedProfile = localStorage.getItem('nutrivalor_profile');
+    let displayName = user.email || 'User';
+    let avatarSrc = null;
+    
+    if (savedProfile) {
+      try {
+        const profileData = JSON.parse(savedProfile);
+        if (profileData.name && profileData.name.trim()) {
+          displayName = profileData.name;
+        }
+        if (profileData.avatar) {
+          avatarSrc = profileData.avatar;
+        }
+      } catch (error) {
+        console.log('Could not parse saved profile for display name');
+      }
+    }
+    
+    userEmailElement.textContent = displayName;
+    
+    // Update header avatar
+    if (headerAvatar && headerAvatarPlaceholder) {
+      if (avatarSrc) {
+        headerAvatar.src = avatarSrc;
+        headerAvatar.style.display = 'block';
+        headerAvatarPlaceholder.style.display = 'none';
+      } else {
+        headerAvatar.style.display = 'none';
+        headerAvatarPlaceholder.style.display = 'flex';
+      }
+    }
   }
 }
 
@@ -391,7 +425,6 @@ export async function handleLogout(): Promise<void> {
     
     currentUser = null;
     showAuthSection();
-    showMessage('Logged out successfully', 'success');
     
   } catch (error) {
     console.error('Logout error:', error);
@@ -401,8 +434,17 @@ export async function handleLogout(): Promise<void> {
 
 // Load user-specific data
 async function loadUserData(): Promise<void> {
-  // This will be implemented by other modules
-  console.log('Loading user data...');
+  try {
+    console.log('Loading user data...');
+    
+    // Import and call the food tracker's load function
+    const { loadAndDisplayFoods } = await import('./food-tracker');
+    await loadAndDisplayFoods();
+    
+    console.log('✅ User data loaded successfully');
+  } catch (error) {
+    console.error('❌ Error loading user data:', error);
+  }
 }
 
 // Generate unique ID

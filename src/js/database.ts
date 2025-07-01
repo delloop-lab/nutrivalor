@@ -1,4 +1,4 @@
-// Database Module for Nutrivalor
+// Database Module for NutriValor
 // This module handles database operations and provides a unified interface
 
 import { supabase } from './supabase-client';
@@ -38,12 +38,34 @@ export async function saveFoodToDatabase(food: any): Promise<any> {
     return data[0];
 }
 
+// Bulk save multiple foods to database (much faster than individual saves)
+export async function saveAllFoodsToDatabase(foods: any[]): Promise<any[]> {
+    if (!supabase) throw new Error('Supabase not initialized');
+    
+    // Supabase can handle bulk inserts efficiently
+    const { data, error } = await supabase
+        .from('foods')
+        .insert(foods)
+        .select();
+        
+    if (error) throw error;
+    return data || [];
+}
+
 export async function loadFoodsFromDatabase(): Promise<any[]> {
     if (!supabase) throw new Error('Supabase not initialized');
+    
+    // Get current user
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError || !user) {
+        console.log('No authenticated user, returning empty food list');
+        return [];
+    }
     
     const { data, error } = await supabase
         .from('foods')
         .select('*')
+        .eq('user_id', user.id)
         .order('name');
         
     if (error) throw error;
@@ -72,6 +94,26 @@ export async function deleteFoodFromDatabase(id: string): Promise<void> {
         .eq('id', id);
         
     if (error) throw error;
+}
+
+// Clear all foods for the current user
+export async function clearAllFoodsForUser(): Promise<void> {
+    if (!supabase) throw new Error('Supabase not initialized');
+    
+    // Get current user
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError || !user) {
+        throw new Error('User must be authenticated to clear foods');
+    }
+    
+    // Delete all foods for this specific user
+    const { error } = await supabase
+        .from('foods')
+        .delete()
+        .eq('user_id', user.id);
+        
+    if (error) throw error;
+    console.log('✅ Cleared all existing foods for user:', user.id);
 }
 
 // Meal operations
@@ -127,9 +169,38 @@ export async function deleteMealFromDatabase(id: string): Promise<void> {
 export async function addToShoppingList(foodId: string, quantity: number = 1): Promise<any> {
     if (!supabase) throw new Error('Supabase not initialized');
     
+    // Get current user
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError || !user) {
+        throw new Error('User must be authenticated to add to shopping list');
+    }
+    
+    // First, get the food details to populate the shopping list entry
+    const { data: food, error: foodError } = await supabase
+        .from('foods')
+        .select('*')
+        .eq('id', foodId)
+        .eq('user_id', user.id)
+        .single();
+    
+    if (foodError || !food) {
+        throw new Error('Food not found or access denied');
+    }
+    
+    // Insert into shopping list with all required fields
     const { data, error } = await supabase
         .from('shopping_list')
-        .insert([{ food_id: foodId, quantity }])
+        .insert([{ 
+            food_id: foodId, 
+            quantity, 
+            user_id: user.id,
+            name: food.name,
+            brand: food.brand || '',
+            carbs: food.carbs || 0,
+            fat: food.fat || 0,
+            protein: food.protein || 0,
+            category: food.category || 'General'
+        }])
         .select();
         
     if (error) throw error;
@@ -139,17 +210,16 @@ export async function addToShoppingList(foodId: string, quantity: number = 1): P
 export async function loadShoppingListFromDatabase(): Promise<any[]> {
     if (!supabase) throw new Error('Supabase not initialized');
     
+    // Get current user
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError || !user) {
+        throw new Error('User must be authenticated to view shopping list');
+    }
+    
     const { data, error } = await supabase
         .from('shopping_list')
-        .select(`
-            *,
-            foods (
-                id,
-                name,
-                brand,
-                category
-            )
-        `)
+        .select('*')
+        .eq('user_id', user.id)
         .order('created_at');
         
     if (error) throw error;
@@ -159,10 +229,17 @@ export async function loadShoppingListFromDatabase(): Promise<any[]> {
 export async function removeFromShoppingList(id: string): Promise<void> {
     if (!supabase) throw new Error('Supabase not initialized');
     
+    // Get current user
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError || !user) {
+        throw new Error('User must be authenticated to remove from shopping list');
+    }
+    
     const { error } = await supabase
         .from('shopping_list')
         .delete()
-        .eq('id', id);
+        .eq('id', id)
+        .eq('user_id', user.id);
         
     if (error) throw error;
 }
@@ -170,12 +247,37 @@ export async function removeFromShoppingList(id: string): Promise<void> {
 export async function updateShoppingListQuantity(id: string, quantity: number): Promise<any> {
     if (!supabase) throw new Error('Supabase not initialized');
     
+    // Get current user
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError || !user) {
+        throw new Error('User must be authenticated to update shopping list');
+    }
+    
     const { data, error } = await supabase
         .from('shopping_list')
         .update({ quantity })
         .eq('id', id)
+        .eq('user_id', user.id)
         .select();
         
     if (error) throw error;
     return data[0];
+}
+
+export async function clearShoppingListFromDatabase(): Promise<void> {
+    if (!supabase) throw new Error('Supabase not initialized');
+    
+    // Get current user
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError || !user) {
+        throw new Error('User must be authenticated to clear shopping list');
+    }
+    
+    const { error } = await supabase
+        .from('shopping_list')
+        .delete()
+        .eq('user_id', user.id);
+        
+    if (error) throw error;
+    console.log('✅ Cleared shopping list for user:', user.id);
 }

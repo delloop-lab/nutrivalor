@@ -1,9 +1,9 @@
-// Main Application Module for Nutrivalor
+// Main Application Module for NutriValor
 let currentSection = 'food-tracker';
 
 // Application initialization
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('🚀 Nutrivalor Web App Starting...');
+    console.log('🚀 NutriValor Web App Starting...');
     
     // Initialize the app after a short delay to ensure all scripts are loaded
     setTimeout(() => {
@@ -12,7 +12,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function initializeApp() {
-    console.log('📱 Initializing Nutrivalor app...');
+    console.log('📱 Initializing NutriValor app...');
     
     // Show initial section
     showSection('food-tracker');
@@ -20,7 +20,7 @@ function initializeApp() {
     // Set up event listeners for modals
     setupModalEventListeners();
     
-    console.log('✅ Nutrivalor app initialized successfully');
+    console.log('✅ NutriValor app initialized successfully');
 }
 
 // Section switching
@@ -65,8 +65,8 @@ function loadSectionData(sectionId) {
         case 'shopping-list':
             displayShoppingList();
             break;
-        case 'analytics':
-            updateAnalytics();
+        case 'weight-tracker':
+            // Weight tracker initializes automatically when section is shown
             break;
         case 'meal-plan':
             displayMealPlan();
@@ -283,6 +283,9 @@ function showMessage(message, type = 'info') {
         hideMessage();
     }, 5000);
 }
+
+// Make showMessage available globally
+(window as any).showMessage = showMessage;
 
 function hideMessage() {
     const toast = document.getElementById('messageToast');

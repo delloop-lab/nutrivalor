@@ -1,4 +1,4 @@
-# Nutrivalor - Food Tracking Web Application
+# NutriValor - Food Tracking Web Application
 
 A modern, responsive web application for tracking food nutrition, managing meal plans, and organizing shopping lists. Built with vanilla JavaScript and designed to work with Supabase for database and authentication.
 
@@ -150,7 +150,7 @@ Deploy your app to any static hosting service:
 ## 📁 Project Structure
 
 ```
-nutrivalor/
+NutriValor/
 ├── index.html              # Main application file
 ├── package.json            # Project dependencies
 ├── README.md              # This file
@@ -215,7 +215,7 @@ nutrivalor/
 
 ## 📞 Support
 
-If you need help setting up or using Nutrivalor:
+If you need help setting up or using NutriValor:
 1. Check the browser console for any error messages
 2. Ensure your Supabase configuration is correct
 3. Try using the app with localStorage fallback first
@@ -237,4 +237,4 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ---
 
-**Nutrivalor** - Your Personal Food Tracking Companion 🥗✨ 
+**NutriValor** - Value your Nutrition 🥗✨ 
