@@ -187,24 +187,56 @@ export async function addToShoppingList(foodId: string, quantity: number = 1): P
         throw new Error('Food not found or access denied');
     }
     
-    // Insert into shopping list with all required fields
-    const { data, error } = await supabase
+    // Check if this food item already exists in the shopping list
+    const { data: existingItem, error: existingError } = await supabase
         .from('shopping_list')
-        .insert([{ 
-            food_id: foodId, 
-            quantity, 
-            user_id: user.id,
-            name: food.name,
-            brand: food.brand || '',
-            carbs: food.carbs || 0,
-            fat: food.fat || 0,
-            protein: food.protein || 0,
-            category: food.category || 'General'
-        }])
-        .select();
-        
-    if (error) throw error;
-    return data[0];
+        .select('*')
+        .eq('food_id', foodId)
+        .eq('user_id', user.id)
+        .single();
+    
+    if (existingError && existingError.code !== 'PGRST116') {
+        // PGRST116 is "no rows returned" - which is fine, means no existing item
+        throw existingError;
+    }
+    
+    if (existingItem) {
+        // Item already exists, update the quantity
+        console.log(`📦 Found existing item "${food.name}" with quantity ${existingItem.quantity}, adding ${quantity}`);
+        const { data, error } = await supabase
+            .from('shopping_list')
+            .update({ 
+                quantity: existingItem.quantity + quantity
+            })
+            .eq('id', existingItem.id)
+            .eq('user_id', user.id)
+            .select();
+            
+        if (error) throw error;
+        console.log(`✅ Updated "${food.name}" quantity to ${existingItem.quantity + quantity}`);
+        return data[0];
+    } else {
+        // Item doesn't exist, create new entry
+        console.log(`📦 Adding new item "${food.name}" with quantity ${quantity}`);
+        const { data, error } = await supabase
+            .from('shopping_list')
+            .insert([{ 
+                food_id: foodId, 
+                quantity, 
+                user_id: user.id,
+                name: food.name,
+                brand: food.brand || '',
+                carbs: food.carbs || 0,
+                fat: food.fat || 0,
+                protein: food.protein || 0,
+                category: food.category || 'General'
+            }])
+            .select();
+            
+        if (error) throw error;
+        console.log(`✅ Added new item "${food.name}" to shopping list`);
+        return data[0];
+    }
 }
 
 export async function loadShoppingListFromDatabase(): Promise<any[]> {

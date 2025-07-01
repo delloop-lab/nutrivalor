@@ -6,6 +6,7 @@ import { initializeFoodTracker } from './js/food-tracker';
 import { initializeWeightTracker } from './js/weight-tracker';
 import { initializeMacroCalculator } from './js/macro-calculator';
 import { initializeMeals } from './js/meals';
+import { initializeShoppingList } from './js/shopping-list';
 
 // Initialize the application
 async function initializeApp(): Promise<void> {
@@ -32,6 +33,9 @@ async function initializeApp(): Promise<void> {
     
     // Initialize meals
     await initializeMeals();
+    
+    // Initialize shopping list
+    await initializeShoppingList();
     
     // Setup modal event listeners
     setupModalEventListeners();
@@ -275,8 +279,6 @@ function showSection(sectionId: string): void {
 
   console.log(`📍 Switched to section: ${sectionId}`);
 }
-
-
 
 function exportData(): void {
   console.log('💾 Export data');

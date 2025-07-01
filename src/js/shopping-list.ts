@@ -11,6 +11,20 @@ let currentShoppingList: any[] = [];
 export async function initializeShoppingList(): Promise<void> {
   console.log('🛒 Initializing shopping list...');
   await loadAndDisplayShoppingList();
+  
+  // Set up event listener for cross-module refresh requests
+  window.addEventListener('shoppingListNeedsRefresh', async (event: Event) => {
+    const customEvent = event as CustomEvent;
+    console.log('📡 Received shopping list refresh event from:', customEvent.detail?.source);
+    try {
+      await loadAndDisplayShoppingList();
+      console.log('✅ Shopping list refreshed via event listener');
+    } catch (error) {
+      console.error('❌ Error refreshing shopping list via event:', error);
+    }
+  });
+  
+  console.log('🎧 Shopping list event listeners set up');
 }
 
 // Load and display shopping list
@@ -18,14 +32,58 @@ export async function loadAndDisplayShoppingList(): Promise<void> {
   try {
     console.log('🛒 Loading shopping list from database...');
     const items = await loadShoppingListFromDatabase();
-    currentShoppingList = items;
     
-    console.log(`🛒 Loaded ${items.length} items from shopping list`);
-    displayShoppingList(items);
+    // Update local cache
+    currentShoppingList = items || [];
+    
+    console.log(`🛒 Loaded ${currentShoppingList.length} items from shopping list`);
+    console.log('🛒 Shopping list items:', currentShoppingList);
+    
+    displayShoppingList(currentShoppingList);
+    
+    // Refresh meal plan checkboxes to reflect current shopping list state
+    try {
+      if (typeof (window as any).refreshMealShoppingCheckboxes === 'function') {
+        await (window as any).refreshMealShoppingCheckboxes();
+        console.log('✅ Meal plan checkboxes refreshed after loading shopping list');
+      }
+    } catch (error) {
+      console.warn('⚠️ Could not refresh meal plan checkboxes:', error);
+    }
+    
   } catch (error) {
     console.error('❌ Error loading shopping list:', error);
+    // Clear local cache on error
+    currentShoppingList = [];
     displayShoppingList([]);
   }
+}
+
+// Consolidate duplicate items by combining quantities
+function consolidateItems(items: any[]): any[] {
+  const consolidated: Record<string, any> = {};
+  
+  items.forEach(item => {
+    // Create a more specific key that includes name and brand for better matching
+    const brand = item.brand || 'Any';
+    const category = item.category || 'General';
+    const key = `${item.name.toLowerCase().trim()}_${brand.toLowerCase().trim()}_${category.toLowerCase().trim()}`;
+    
+    console.log(`🔍 Processing item: ${item.name}, Brand: ${brand}, Category: ${category}, Key: ${key}`);
+    
+    if (consolidated[key]) {
+      // Item already exists, add quantities together
+      consolidated[key].quantity += item.quantity;
+      console.log(`🔄 Consolidated ${item.name}: ${consolidated[key].quantity} total quantity`);
+    } else {
+      // New item, add to consolidated list
+      consolidated[key] = { ...item };
+      console.log(`➕ Added new item: ${item.name} with quantity ${item.quantity}`);
+    }
+  });
+  
+  console.log(`📦 Consolidation complete: ${Object.keys(consolidated).length} unique items`);
+  return Object.values(consolidated);
 }
 
 // Display shopping list items
@@ -33,46 +91,98 @@ function displayShoppingList(items: any[]): void {
   const shoppingItemsContainer = document.getElementById('shoppingItems');
   const shoppingTotalsContainer = document.getElementById('shoppingTotals');
   
+  console.log('🛒 displayShoppingList called with:', items.length, 'items');
+  console.log('🛒 Items data:', items);
+  console.log('🛒 currentShoppingList length:', currentShoppingList.length);
+  
   if (!shoppingItemsContainer) {
     console.warn('❌ Shopping items container not found');
     return;
   }
 
-  if (items.length === 0) {
+  // Clear totals first to avoid inconsistency
+  if (shoppingTotalsContainer) {
+    shoppingTotalsContainer.style.display = 'none';
+    shoppingTotalsContainer.innerHTML = '';
+  }
+
+  if (!items || items.length === 0) {
+    console.log('🛒 Displaying empty state');
     shoppingItemsContainer.innerHTML = '<p class="empty-state">Your shopping list is empty. Add items from the Food Tracker!</p>';
+    // Ensure totals are hidden for empty state
     if (shoppingTotalsContainer) {
       shoppingTotalsContainer.style.display = 'none';
     }
     return;
   }
 
-  // Display items
-  shoppingItemsContainer.innerHTML = items.map(item => `
-    <div class="shopping-item" data-id="${item.id}">
-      <div class="item-info">
-        <h4>${item.name}</h4>
-        ${item.brand ? `<div class="brand-info">Brand: ${item.brand}</div>` : ''}
-        <div class="nutrition-info">
-          <span>Carbs: ${formatNutrition(item.carbs)}g</span>
-          <span>Fat: ${formatNutrition(item.fat)}g</span>
-          <span>Protein: ${formatNutrition(item.protein)}g</span>
-        </div>
-        <div class="category-info">${item.category || 'General'}</div>
-      </div>
-      <div class="item-controls">
-        <div class="quantity-controls">
-          <button onclick="updateItemQuantity('${item.id}', ${item.quantity - 1})" class="qty-btn" ${item.quantity <= 1 ? 'disabled' : ''}>-</button>
-          <span class="quantity">${item.quantity}</span>
-          <button onclick="updateItemQuantity('${item.id}', ${item.quantity + 1})" class="qty-btn">+</button>
-        </div>
-        <button onclick="removeShoppingItem('${item.id}')" class="remove-btn">Remove</button>
-      </div>
-    </div>
-  `).join('');
+  console.log('🛒 Processing', items.length, 'items for display');
 
-  // Calculate and display totals
-  const totals = calculateTotals(items);
-  if (shoppingTotalsContainer) {
+  // Consolidate duplicate items first
+  const consolidatedItems = consolidateItems(items);
+  console.log('🛒 After consolidation:', consolidatedItems.length, 'unique items');
+
+  // Group consolidated items by category
+  const itemsByCategory = consolidatedItems.reduce((groups: Record<string, any[]>, item: any) => {
+    const category = item.category || item.brand || 'General';
+    if (!groups[category]) {
+      groups[category] = [];
+    }
+    groups[category].push(item);
+    return groups;
+  }, {} as Record<string, any[]>);
+
+  console.log('🛒 Items grouped by category:', Object.keys(itemsByCategory));
+
+  // Sort categories with SUNDRIES at the end
+  const categoryOrder = Object.keys(itemsByCategory).sort((a, b) => {
+    if (a === 'SUNDRIES') return 1;
+    if (b === 'SUNDRIES') return -1;
+    return a.localeCompare(b);
+  });
+
+  // Display items grouped by category
+  shoppingItemsContainer.innerHTML = categoryOrder.map(category => {
+    const categoryItems = itemsByCategory[category];
+    const isSundries = category === 'SUNDRIES';
+    
+    return `
+      <div class="shopping-category">
+        <h3 class="category-header ${isSundries ? 'sundries-header' : ''}">${category}${isSundries ? ' (From Meal Plans)' : ''}</h3>
+        <div class="category-items">
+          ${categoryItems.map(item => `
+            <div class="shopping-item" data-id="${item.id}">
+              <div class="item-info">
+                <h4>${item.name}</h4>
+                <div class="quantity-display">Qty: ${item.quantity}</div>
+                ${item.brand && item.brand !== 'SUNDRIES' ? `<div class="brand-info">Brand: ${item.brand}</div>` : ''}
+                <div class="nutrition-info">
+                  <span>Carbs: ${formatNutrition(item.carbs)}g</span>
+                  <span>Fat: ${formatNutrition(item.fat)}g</span>
+                  <span>Protein: ${formatNutrition(item.protein)}g</span>
+                </div>
+                ${!isSundries ? `<div class="category-info">${item.category || 'General'}</div>` : ''}
+              </div>
+              <div class="item-controls">
+                <div class="quantity-controls">
+                  <button onclick="updateItemQuantity('${item.id}', ${item.quantity - 1})" class="qty-btn" ${item.quantity <= 1 ? 'disabled' : ''}>-</button>
+                  <span class="quantity">${item.quantity}</span>
+                  <button onclick="updateItemQuantity('${item.id}', ${item.quantity + 1})" class="qty-btn">+</button>
+                </div>
+                <button onclick="removeShoppingItem('${item.id}')" class="remove-btn">Remove</button>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  // Calculate and display totals ONLY if we have items
+  const totals = calculateTotals(consolidatedItems);
+  console.log('🛒 Calculated totals:', totals);
+  
+  if (shoppingTotalsContainer && totals.totalItems > 0) {
     shoppingTotalsContainer.style.display = 'block';
     shoppingTotalsContainer.innerHTML = `
       <div class="totals-header">
@@ -127,6 +237,17 @@ export async function removeShoppingItem(id: string): Promise<void> {
   try {
     await removeFromShoppingList(id);
     await loadAndDisplayShoppingList(); // Refresh display
+    
+    // Refresh meal plan checkboxes to reflect changes
+    try {
+      if (typeof (window as any).refreshMealShoppingCheckboxes === 'function') {
+        await (window as any).refreshMealShoppingCheckboxes();
+        console.log('✅ Meal plan checkboxes refreshed after item removal');
+      }
+    } catch (error) {
+      console.warn('⚠️ Could not refresh meal plan checkboxes:', error);
+    }
+    
     showMessage('Item removed from shopping list', 'success');
   } catch (error) {
     console.error('Error removing item:', error);
@@ -145,6 +266,9 @@ export async function updateItemQuantity(id: string, newQuantity: number): Promi
   try {
     await updateShoppingListQuantity(id, newQuantity);
     await loadAndDisplayShoppingList(); // Refresh display
+    
+    // No need to refresh checkboxes for quantity changes - only for add/remove
+    
   } catch (error) {
     console.error('Error updating quantity:', error);
     showMessage('Error updating quantity', 'error');
@@ -159,6 +283,17 @@ export async function clearAllShoppingItems(): Promise<void> {
       await removeFromShoppingList(item.id);
     }
     await loadAndDisplayShoppingList(); // Refresh display
+    
+    // Refresh meal plan checkboxes to reflect changes
+    try {
+      if (typeof (window as any).refreshMealShoppingCheckboxes === 'function') {
+        await (window as any).refreshMealShoppingCheckboxes();
+        console.log('✅ Meal plan checkboxes refreshed after clearing list');
+      }
+    } catch (error) {
+      console.warn('⚠️ Could not refresh meal plan checkboxes:', error);
+    }
+    
     showMessage('Shopping list cleared', 'success');
   } catch (error) {
     console.error('Error clearing shopping list:', error);
@@ -177,7 +312,7 @@ export function getCurrentShoppingList(): any[] {
 }
 
 // Show message helper
-function showMessage(message: string, type: 'success' | 'error' = 'success'): void {
+function showMessage(message: string, type: 'success' | 'error' | 'info' = 'success'): void {
   // Create or update message element
   let messageEl = document.getElementById('shopping-message');
   if (!messageEl) {
@@ -203,8 +338,156 @@ declare global {
   interface Window {
     removeShoppingItem: (id: string) => Promise<void>;
     updateItemQuantity: (id: string, newQuantity: number) => Promise<void>;
+    loadAndDisplayShoppingList: () => Promise<void>;
+    printShoppingList: () => void;
+    handleClearShoppingList: () => void;
   }
 }
 
-window.removeShoppingItem = removeShoppingItem;
+// Expose functions globally
+(window as any).removeShoppingItem = removeShoppingItem;
+(window as any).updateItemQuantity = updateItemQuantity;
+(window as any).loadAndDisplayShoppingList = loadAndDisplayShoppingList;
+(window as any).printShoppingList = printShoppingList;
+(window as any).handleClearShoppingList = handleClearShoppingList;
+
+// Print shopping list
+export function printShoppingList(): void {
+  console.log('🖨️ Printing shopping list...');
+  
+  if (!currentShoppingList || currentShoppingList.length === 0) {
+    showMessage('Shopping list is empty - nothing to print!', 'error');
+    return;
+  }
+  
+  // Create a new window for printing
+  const printWindow = window.open('', '_blank');
+  if (!printWindow) {
+    showMessage('Unable to open print window. Please check your browser settings.', 'error');
+    return;
+  }
+  
+  // Generate print content
+  const printContent = generatePrintContent();
+  
+  printWindow.document.write(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>NutriValor Shopping List</title>
+      <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        h1 { color: #333; }
+        .category { margin-bottom: 20px; }
+        .category h2 { color: #666; border-bottom: 1px solid #ccc; padding-bottom: 5px; }
+        .item { margin: 8px 0; padding: 8px 0; border-bottom: 1px dotted #ddd; display: flex; align-items: flex-start; }
+        .checkbox { font-size: 24px; font-weight: bold; margin-right: 12px; line-height: 1; color: #333; }
+        .item-content { flex: 1; }
+        .item-name { font-weight: bold; margin-bottom: 4px; }
+        .item-details { font-size: 0.9em; color: #666; }
+        .totals { margin-top: 30px; padding: 15px; background: #f5f5f5; border-radius: 5px; }
+        @media print { body { margin: 0; } }
+      </style>
+    </head>
+    <body>
+      ${printContent}
+    </body>
+    </html>
+  `);
+  
+  printWindow.document.close();
+  printWindow.focus();
+  printWindow.print();
+  
+  showMessage('Shopping list opened for printing!', 'success');
+}
+
+// Generate print content
+function generatePrintContent(): string {
+  // Consolidate items for printing
+  const consolidatedItems = consolidateItems(currentShoppingList);
+  const totals = calculateTotals(consolidatedItems);
+  const date = new Date().toLocaleDateString();
+  
+  // Group consolidated items by category
+  const itemsByCategory = consolidatedItems.reduce((groups: Record<string, any[]>, item: any) => {
+    const category = item.category || item.brand || 'General';
+    if (!groups[category]) {
+      groups[category] = [];
+    }
+    groups[category].push(item);
+    return groups;
+  }, {} as Record<string, any[]>);
+  
+  // Sort categories with SUNDRIES at the end
+  const categoryOrder = Object.keys(itemsByCategory).sort((a, b) => {
+    if (a === 'SUNDRIES') return 1;
+    if (b === 'SUNDRIES') return -1;
+    return a.localeCompare(b);
+  });
+  
+  let content = `
+    <h1>NutriValor Shopping List</h1>
+    <p><strong>Generated:</strong> ${date}</p>
+    <p><strong>Total Items:</strong> ${totals.totalItems}</p>
+  `;
+  
+  categoryOrder.forEach(category => {
+    const items = itemsByCategory[category];
+    const isSundries = category === 'SUNDRIES';
+    
+    content += `
+      <div class="category">
+        <h2>${category}${isSundries ? ' (From Meal Plans)' : ''}</h2>
+    `;
+    
+    items.forEach(item => {
+      content += `
+        <div class="item">
+          <div class="checkbox">☐</div>
+          <div class="item-content">
+            <div class="item-name">${item.name} (Qty: ${item.quantity})</div>
+            <div class="item-details">
+              Carbs: ${formatNutrition(item.carbs)}g | 
+              Fat: ${formatNutrition(item.fat)}g | 
+              Protein: ${formatNutrition(item.protein)}g
+              ${item.brand && item.brand !== 'SUNDRIES' ? ` | Brand: ${item.brand}` : ''}
+            </div>
+          </div>
+        </div>
+      `;
+    });
+    
+    content += `</div>`;
+  });
+  
+  content += `
+    <div class="totals">
+      <h2>Totals</h2>
+      <p><strong>Total Carbs:</strong> ${totals.totalCarbs.toFixed(1)}g</p>
+      <p><strong>Total Fat:</strong> ${totals.totalFat.toFixed(1)}g</p>
+      <p><strong>Total Protein:</strong> ${totals.totalProtein.toFixed(1)}g</p>
+    </div>
+  `;
+  
+  return content;
+}
+
+// Handle clear shopping list with confirmation
+export function handleClearShoppingList(): void {
+  console.log('🗑️ Clear shopping list requested...');
+  
+  if (!currentShoppingList || currentShoppingList.length === 0) {
+    showMessage('Shopping list is already empty!', 'info');
+    return;
+  }
+  
+  const confirmed = confirm(`Are you sure you want to clear all ${currentShoppingList.length} items from your shopping list? This cannot be undone.`);
+  
+  if (confirmed) {
+    clearAllShoppingItems();
+  } else {
+    console.log('🚫 Clear shopping list cancelled by user');
+  }
+}
  

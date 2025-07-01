@@ -41,6 +41,7 @@ export async function initializeMeals() {
     setupMealEventListeners();
     loadWeeklyMealPlan(); // Load saved weekly meal plan data
     updateWeeklyMealPlanDisplay(); // Initialize the weekly meal plan grid
+    displayLastMealUploadDate(); // Display last meal update date
     console.log('✅ Meals module initialized successfully');
 }
 
@@ -143,13 +144,14 @@ async function processMealFile(file: File) {
         
         showMealMessage(`✅ Successfully loaded ${meals.length} meals! They will persist after refresh.`, 'success');
         
+        // Update last upload date
+        updateLastMealUploadDate();
+        
     } catch (error) {
         console.error('❌ Error uploading meal file:', error);
         showMealMessage('Error uploading meal file. Please try again.', 'error');
     }
 }
-
-
 
 // Parse meal data from Excel with vertical hierarchical structure
 function parseMealData(jsonData: any[][]): Meal[] {
@@ -193,7 +195,11 @@ function parseMealData(jsonData: any[][]): Meal[] {
                 meals.push(currentMeal);
             }
             
+            // Generate a unique ID for the meal (combination of meal name and row)
+            const mealId = `meal_${mealName.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase()}_${i}`;
+            
             currentMeal = {
+                id: mealId,
                 number: mealNumber,
                 name: mealName,
                 mealType: currentMealType || 'OTHER',
@@ -206,7 +212,7 @@ function parseMealData(jsonData: any[][]): Meal[] {
                 endRow: i + 1,
                 images: []
             };
-            console.log(`🆕 Started new meal: ${mealName} (${currentMealType}) at row ${i + 1}`);
+            console.log(`🆕 Started new meal: ${mealName} (${currentMealType}) with ID: ${mealId} at row ${i + 1}`);
         }
 
         // Add ingredient to current meal
@@ -399,7 +405,21 @@ function loadMealsFromLocalStorage() {
     const saved = localStorage.getItem('nutrivalor_meals');
     if (saved) {
         try {
-            currentMeals = JSON.parse(saved);
+            const loadedMeals = JSON.parse(saved);
+            
+            // Ensure all meals have IDs
+            currentMeals = loadedMeals.map((meal: any, index: number) => {
+                if (!meal.id) {
+                    // Generate an ID if it doesn't exist
+                    meal.id = `meal_${meal.name.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase()}_${index}`;
+                    console.log(`🔧 Generated ID for meal: ${meal.name} -> ${meal.id}`);
+                }
+                return meal;
+            });
+            
+            // Save back to localStorage with IDs
+            localStorage.setItem('nutrivalor_meals', JSON.stringify(currentMeals));
+            
             console.log(`📂 Loaded ${currentMeals.length} meals from localStorage`);
             displayMeals(currentMeals);
         } catch (error) {
@@ -864,22 +884,35 @@ function hideMealPlanDropdown(mealId: string) {
 }
 
 function addMealToWeeklyPlan(mealId: string, mealName: string) {
+    console.log(`🔍 addMealToWeeklyPlan called with mealId: "${mealId}", mealName: "${mealName}"`);
+    console.log(`📊 Current meals count: ${currentMeals.length}`);
+    console.log(`📋 Available meal IDs:`, currentMeals.map(m => ({ id: m.id, name: m.name })));
+    
     const meal = currentMeals.find((m: any) => m.id === mealId);
     if (!meal) {
-        console.error('Meal not found:', mealId);
+        console.error(`❌ Meal not found with ID: "${mealId}"`);
+        console.error(`Available meals:`, currentMeals.map(m => `ID: "${m.id}", Name: "${m.name}"`));
+        showMealMessage(`Meal not found: ${mealName}`, 'error');
         return;
     }
+
+    console.log(`✅ Found meal: ${meal.name} with ID: ${meal.id}`);
 
     const daySelect = document.getElementById(`day-${mealId}`) as HTMLSelectElement;
     const mealTimeSelect = document.getElementById(`mealtime-${mealId}`) as HTMLSelectElement;
     
     if (!daySelect || !mealTimeSelect) {
-        console.error('Dropdown selects not found');
+        console.error(`❌ Dropdown selects not found for meal ID: ${mealId}`);
+        console.error(`daySelect:`, daySelect);
+        console.error(`mealTimeSelect:`, mealTimeSelect);
+        showMealMessage('Error: Dropdown elements not found', 'error');
         return;
     }
 
     const selectedDay = daySelect.value;
     const selectedMealTime = mealTimeSelect.value;
+    
+    console.log(`📅 Selected day: ${selectedDay}, meal time: ${selectedMealTime}`);
 
     // Initialize day if it doesn't exist
     if (!weeklyMealPlan[selectedDay]) {
@@ -911,6 +944,7 @@ function addMealToWeeklyPlan(mealId: string, mealName: string) {
     // Hide dropdown and show success message
     hideMealPlanDropdown(mealId);
     showMealMessage(`Added "${mealName}" to ${selectedDay} ${selectedMealTime}!`, 'success');
+    console.log(`✅ Successfully added meal to weekly plan`);
 }
 
 function removeMealFromWeeklyPlan(mealId: string, day: string, mealType: string) {
@@ -973,7 +1007,16 @@ function updateWeeklyMealPlanDisplay() {
                                 <div class="meal-type-label">${mealTypeLabels[index]}</div>
                                 ${meals.map(meal => `
                                     <div class="planned-meal">
-                                        <span class="planned-meal-name">${meal.name}</span>
+                                        <div class="planned-meal-content">
+                                            <input 
+                                                type="checkbox" 
+                                                class="meal-shopping-checkbox" 
+                                                id="shopping-${meal.id}-${day}-${mealType}"
+                                                title="Add ingredients to Shopping List"
+                                                onchange="handleMealToShoppingList('${meal.id}', '${meal.name.replace(/'/g, "\\'")}', this.checked)"
+                                            />
+                                            <span class="planned-meal-name">${meal.name}</span>
+                                        </div>
                                         <button class="remove-planned-btn" onclick="removeMealFromWeeklyPlan('${meal.id}', '${day}', '${mealType}')">×</button>
                                     </div>
                                 `).join('')}
@@ -1005,6 +1048,110 @@ function updateWeeklyMealPlanDisplay() {
     });
 
     weeklyPlanGrid.innerHTML = html;
+    
+    // After rendering HTML, check which meals have ingredients in shopping list
+    updateMealShoppingCheckboxes();
+}
+
+// Function to check shopping list and update checkboxes accordingly
+async function updateMealShoppingCheckboxes() {
+    try {
+        console.log('🔄 Updating meal shopping checkboxes based on current shopping list...');
+        
+        // Load current shopping list items
+        const shoppingListItems = await loadShoppingListItems();
+        console.log(`📊 Found ${shoppingListItems.length} items in shopping list`);
+        
+        // Load current foods for matching
+        const allFoods = await loadFoodsForMatching();
+        console.log(`📊 Found ${allFoods.length} foods available for matching`);
+        
+        // Create a set of shopping list item identifiers for quick lookup
+        const shoppingItemIds = new Set(shoppingListItems.map(item => item.food_id).filter(id => id !== null));
+        const shoppingItemNames = new Set(shoppingListItems.map(item => item.name.toLowerCase().trim()));
+        
+        console.log('🔍 Shopping list contains:', {
+            foodIds: Array.from(shoppingItemIds),
+            names: Array.from(shoppingItemNames)
+        });
+        
+        // Check each meal in the weekly plan
+        Object.keys(weeklyMealPlan).forEach(day => {
+            Object.keys(weeklyMealPlan[day]).forEach(mealType => {
+                weeklyMealPlan[day][mealType].forEach(meal => {
+                    const checkboxId = `shopping-${meal.id}-${day}-${mealType}`;
+                    const checkbox = document.getElementById(checkboxId) as HTMLInputElement;
+                    
+                    if (checkbox && meal.ingredients) {
+                        // Check if any of this meal's ingredients are in the shopping list
+                        let hasIngredientsInShoppingList = false;
+                        
+                        for (const ingredient of meal.ingredients) {
+                            const ingredientName = ingredient.name.trim().toLowerCase();
+                            
+                            // Check if ingredient matches any food in shopping list (by food_id)
+                            const matchedFood = findMatchingFood(ingredientName, allFoods);
+                            if (matchedFood && shoppingItemIds.has(matchedFood.id)) {
+                                hasIngredientsInShoppingList = true;
+                                console.log(`✅ Found ingredient "${ingredient.name}" in shopping list via food match`);
+                                break;
+                            }
+                            
+                            // Check if ingredient is directly in shopping list (SUNDRIES)
+                            if (shoppingItemNames.has(ingredientName)) {
+                                hasIngredientsInShoppingList = true;
+                                console.log(`✅ Found ingredient "${ingredient.name}" in shopping list as SUNDRIES`);
+                                break;
+                            }
+                        }
+                        
+                        // Update checkbox state
+                        const wasChecked = checkbox.checked;
+                        checkbox.checked = hasIngredientsInShoppingList;
+                        
+                        if (wasChecked !== hasIngredientsInShoppingList) {
+                            console.log(`🔄 Updated checkbox ${checkboxId}: ${wasChecked} → ${hasIngredientsInShoppingList}`);
+                        }
+                    }
+                });
+            });
+        });
+        
+        console.log('✅ Meal shopping checkboxes updated based on current shopping list');
+        
+    } catch (error) {
+        console.error('Error updating meal shopping checkboxes:', error);
+    }
+}
+
+// Function to load shopping list items from database
+async function loadShoppingListItems(): Promise<any[]> {
+    try {
+        const { supabase } = await import('./supabase-client');
+        
+        if (!supabase) {
+            throw new Error('Supabase client not available');
+        }
+        
+        const { data: { user }, error: userError } = await supabase.auth.getUser();
+        
+        if (userError || !user) {
+            throw new Error('User must be authenticated');
+        }
+        
+        const { data, error } = await supabase
+            .from('shopping_list')
+            .select('*')
+            .eq('user_id', user.id);
+            
+        if (error) throw error;
+        
+        return data || [];
+        
+    } catch (error) {
+        console.error('Error loading shopping list items:', error);
+        return [];
+    }
 }
 
 // Load weekly meal plan from localStorage
@@ -1042,6 +1189,48 @@ function clearAllMealPlanData() {
     }
 }
 
+// Clear meal shopping checkboxes only (not the meal plan data)
+function clearMealShoppingCheckboxes() {
+    console.log('🗑️ Clearing all meal shopping checkboxes...');
+    console.log('🔍 Searching for checkboxes with class: .meal-shopping-checkbox');
+    
+    // Find all meal shopping checkboxes and uncheck them
+    const checkboxes = document.querySelectorAll('.meal-shopping-checkbox');
+    console.log(`📊 Found ${checkboxes.length} checkboxes total`);
+    
+    let uncheckedCount = 0;
+    let totalChecked = 0;
+    
+    checkboxes.forEach((checkbox, index) => {
+        if (checkbox instanceof HTMLInputElement) {
+            const wasChecked = checkbox.checked;
+            if (wasChecked) {
+                totalChecked++;
+            }
+            console.log(`🔲 Checkbox ${index + 1}: ID="${checkbox.id}", checked=${wasChecked}`);
+            
+            if (wasChecked) {
+                checkbox.checked = false;
+                uncheckedCount++;
+                console.log(`✅ Unchecked checkbox: ${checkbox.id}`);
+            }
+        }
+    });
+    
+    console.log(`📈 Summary: ${uncheckedCount} unchecked out of ${totalChecked} that were checked`);
+    
+    if (uncheckedCount > 0) {
+        showMealMessage(`Cleared ${uncheckedCount} "Add to List" selections`, 'success');
+        console.log(`✅ Successfully unchecked ${uncheckedCount} meal shopping checkboxes`);
+    } else if (totalChecked === 0) {
+        showMealMessage('No checkboxes were selected to clear', 'info');
+        console.log('ℹ️ No meal shopping checkboxes were checked');
+    } else {
+        showMealMessage('All checkboxes were already cleared', 'info');
+        console.log('ℹ️ All checkboxes were already unchecked');
+    }
+}
+
 // Global functions for HTML onclick handlers
 (window as any).addMealToPlan = function(mealId: string, mealName: string) {
     console.log(`🍽️ Adding meal ${mealName} to plan`);
@@ -1072,6 +1261,10 @@ function clearAllMealPlanData() {
     clearAllMealPlanData();
 };
 
+(window as any).clearMealShoppingCheckboxes = function() {
+    clearMealShoppingCheckboxes();
+};
+
 (window as any).removeMealFromPlan = function(mealId: string, mealType: string) {
     const today = new Date().toISOString().split('T')[0];
     if (mealPlan[today] && mealPlan[today][mealType]) {
@@ -1087,3 +1280,307 @@ function clearAllMealPlanData() {
 
 // Test global function availability
 console.log('🧪 Testing global filterMealsByCategory function availability:', typeof (window as any).filterMealsByCategory);
+
+// Meal to Shopping List functionality
+async function handleMealToShoppingList(mealId: string, mealName: string, isChecked: boolean): Promise<void> {
+    console.log(`🛒 handleMealToShoppingList called - mealId: "${mealId}", mealName: "${mealName}", isChecked: ${isChecked}`);
+    console.log(`📊 Current meals available: ${currentMeals.length}`);
+    console.log(`🔍 Available meal IDs:`, currentMeals.map(m => m.id));
+    
+    if (!isChecked) {
+        // If unchecked, we could implement removal logic here
+        // For now, we'll just show a message
+        showMealMessage('Note: Ingredients are not automatically removed from shopping list when unchecked', 'info');
+        return;
+    }
+    
+    const meal = currentMeals.find(m => m.id === mealId);
+    if (!meal) {
+        console.error(`❌ Meal not found with ID: "${mealId}"`);
+        console.error(`Available meals:`, currentMeals.map(m => ({ id: m.id, name: m.name })));
+        showMealMessage('Meal not found', 'error');
+        return;
+    }
+    
+    console.log(`✅ Found meal: "${meal.name}" with ${meal.ingredients?.length || 0} ingredients`);
+    
+    if (!meal.ingredients || meal.ingredients.length === 0) {
+        console.warn(`⚠️ No ingredients found in meal: "${meal.name}"`);
+        showMealMessage('No ingredients found in this meal', 'error');
+        return;
+    }
+    
+    try {
+        showMealMessage('Processing ingredients...', 'info');
+        const results = await addMealIngredientsToShoppingList(meal);
+        
+        const matched = results.matched.length;
+        const unmatched = results.unmatched.length;
+        
+        let message = `Added ${matched + unmatched} ingredients to shopping list`;
+        if (matched > 0) message += ` (${matched} matched from Food Tracker`;
+        if (unmatched > 0) message += `, ${unmatched} added to SUNDRIES`;
+        if (matched > 0 || unmatched > 0) message += ')';
+        
+        showMealMessage(message, 'success');
+        
+        // Small delay to ensure database operations complete
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // Update shopping list display using multiple approaches for reliability
+        console.log('🔄 Refreshing shopping list display...');
+        let refreshSuccess = false;
+        
+        try {
+            // Method 1: Try global function
+            if (typeof (window as any).loadAndDisplayShoppingList === 'function') {
+                await (window as any).loadAndDisplayShoppingList();
+                refreshSuccess = true;
+                console.log('✅ Shopping list display refreshed via global function');
+            }
+        } catch (error) {
+            console.warn('⚠️ Global function refresh failed:', error);
+        }
+        
+        if (!refreshSuccess) {
+            try {
+                // Method 2: Try direct import
+                const { loadAndDisplayShoppingList } = await import('./shopping-list');
+                await loadAndDisplayShoppingList();
+                refreshSuccess = true;
+                console.log('✅ Shopping list display refreshed via import');
+            } catch (error) {
+                console.warn('⚠️ Import refresh failed:', error);
+            }
+        }
+        
+        // Method 3: Dispatch custom event for shopping list refresh
+        try {
+            const refreshEvent = new CustomEvent('shoppingListNeedsRefresh', {
+                detail: { source: 'meal-plan', timestamp: Date.now() }
+            });
+            window.dispatchEvent(refreshEvent);
+            console.log('📡 Shopping list refresh event dispatched');
+        } catch (error) {
+            console.warn('⚠️ Event dispatch failed:', error);
+        }
+        
+        // Method 4: Visual indicator for manual refresh if all else fails
+        if (!refreshSuccess) {
+            console.warn('⚠️ All automatic refresh methods failed');
+            showMealMessage('Ingredients added! Please switch to the Shopping List tab to see updates.', 'info');
+        } else {
+            console.log('👁️ Shopping list refresh completed successfully');
+        }
+        
+    } catch (error) {
+        console.error('Error adding meal ingredients to shopping list:', error);
+        showMealMessage('Error adding ingredients to shopping list', 'error');
+    }
+}
+
+async function addMealIngredientsToShoppingList(meal: any): Promise<{matched: any[], unmatched: any[]}> {
+    console.log(`🔍 Processing ${meal.ingredients.length} ingredients from "${meal.name}"`);
+    
+    // Load current foods from Food Tracker for matching
+    const allFoods = await loadFoodsForMatching();
+    
+    const matched: any[] = [];
+    const unmatched: any[] = [];
+    
+    for (const ingredient of meal.ingredients) {
+        const ingredientName = ingredient.name.trim().toLowerCase();
+        
+        // Try to find a matching food in the Food Tracker
+        const matchedFood = findMatchingFood(ingredientName, allFoods);
+        
+        if (matchedFood) {
+            // Add to shopping list using existing food data
+            try {
+                await addFoodToShoppingList(matchedFood.id);
+                matched.push({ ingredient, matchedFood });
+                console.log(`✅ Matched "${ingredient.name}" with "${matchedFood.name}"`);
+            } catch (error) {
+                console.error(`Error adding ${matchedFood.name} to shopping list:`, error);
+            }
+        } else {
+            // Add to SUNDRIES section
+            try {
+                await addIngredientToSundries(ingredient);
+                unmatched.push(ingredient);
+                console.log(`📝 Added "${ingredient.name}" to SUNDRIES`);
+            } catch (error) {
+                console.error(`Error adding ${ingredient.name} to SUNDRIES:`, error);
+            }
+        }
+    }
+    
+    return { matched, unmatched };
+}
+
+async function loadFoodsForMatching(): Promise<any[]> {
+    try {
+        // Import the loadFoodsFromDatabase function
+        const { loadFoodsFromDatabase } = await import('./database');
+        return await loadFoodsFromDatabase();
+    } catch (error) {
+        console.error('Error loading foods for matching:', error);
+        return [];
+    }
+}
+
+function findMatchingFood(ingredientName: string, foods: any[]): any | null {
+    if (!foods || foods.length === 0) return null;
+    
+    const searchName = ingredientName.toLowerCase().trim();
+    
+    // Try exact match first
+    let match = foods.find(food => 
+        food.name.toLowerCase().trim() === searchName
+    );
+    
+    if (match) return match;
+    
+    // Try partial matches - ingredient contains food name or vice versa
+    match = foods.find(food => {
+        const foodName = food.name.toLowerCase().trim();
+        return searchName.includes(foodName) || foodName.includes(searchName);
+    });
+    
+    if (match) return match;
+    
+    // Try word-based matching (split by spaces and check for common words)
+    const ingredientWords = searchName.split(/\s+/);
+    match = foods.find(food => {
+        const foodWords = food.name.toLowerCase().trim().split(/\s+/);
+        return ingredientWords.some(word => 
+            word.length > 2 && foodWords.some((foodWord: string) => 
+                foodWord.includes(word) || word.includes(foodWord)
+            )
+        );
+    });
+    
+    return match || null;
+}
+
+async function addFoodToShoppingList(foodId: string): Promise<void> {
+    try {
+        // Import the addToShoppingList function from database
+        const { addToShoppingList } = await import('./database');
+        await addToShoppingList(foodId, 1);
+    } catch (error) {
+        console.error('Error adding food to shopping list:', error);
+        throw error;
+    }
+}
+
+async function addIngredientToSundries(ingredient: any): Promise<void> {
+    try {
+        // Get current user
+        const { supabase } = await import('./supabase-client');
+        
+        if (!supabase) {
+            throw new Error('Supabase client not available');
+        }
+        
+        const { data: { user }, error: userError } = await supabase.auth.getUser();
+        
+        if (userError || !user) {
+            throw new Error('User must be authenticated');
+        }
+        
+        // Add ingredient as a shopping list item directly (not linked to foods table)
+        const { error } = await supabase
+            .from('shopping_list')
+            .insert([{
+                food_id: null, // No link to foods table for SUNDRIES items
+                name: ingredient.name,
+                brand: 'SUNDRIES',
+                category: 'SUNDRIES',
+                carbs: ingredient.carbs || 0,
+                fat: ingredient.fat || 0,
+                protein: ingredient.protein || 0,
+                quantity: 1,
+                user_id: user.id
+            }]);
+        
+        if (error) throw error;
+        
+    } catch (error) {
+        console.error('Error adding ingredient to SUNDRIES:', error);
+        throw error;
+    }
+}
+
+// Global function for HTML onclick handler
+(window as any).handleMealToShoppingList = async function(mealId: string, mealName: string, isChecked: boolean) {
+    console.log('🚀 Global handleMealToShoppingList wrapper called!');
+    console.log(`Parameters: mealId="${mealId}", mealName="${mealName}", isChecked=${isChecked}`);
+    try {
+        await handleMealToShoppingList(mealId, mealName, isChecked);
+    } catch (error) {
+        console.error('Error in handleMealToShoppingList:', error);
+        showMealMessage('Error processing ingredients', 'error');
+    }
+};
+
+// Debug function to check if the global function is available
+(window as any).testMealShoppingFunction = function() {
+    console.log('🧪 Testing handleMealToShoppingList availability:');
+    console.log('- Function exists:', typeof (window as any).handleMealToShoppingList);
+    console.log('- Current meals:', currentMeals.length);
+    console.log('- Meals data:', currentMeals.map(m => ({ id: m.id, name: m.name })));
+};
+
+// Debug function to test the CLEAR button functionality
+(window as any).testClearFunction = function() {
+    console.log('🧪 Testing CLEAR button functionality:');
+    console.log('- clearMealShoppingCheckboxes function exists:', typeof (window as any).clearMealShoppingCheckboxes);
+    console.log('- clearAllMealPlanData function exists:', typeof (window as any).clearAllMealPlanData);
+    
+    // Check checkboxes on page
+    const checkboxes = document.querySelectorAll('.meal-shopping-checkbox');
+    console.log('- Meal shopping checkboxes found:', checkboxes.length);
+    
+    if (checkboxes.length > 0) {
+        console.log('- Checkbox details:');
+        checkboxes.forEach((checkbox, index) => {
+            if (checkbox instanceof HTMLInputElement) {
+                console.log(`  Checkbox ${index + 1}: ID="${checkbox.id}", checked=${checkbox.checked}`);
+            }
+        });
+    } else {
+        console.log('- No checkboxes found. Make sure you have meals added to your weekly plan first.');
+    }
+    
+    // Test the function directly
+    console.log('🔧 Testing clearMealShoppingCheckboxes() directly...');
+    clearMealShoppingCheckboxes();
+};
+
+// Global function to refresh meal shopping checkboxes (can be called from other modules)
+(window as any).refreshMealShoppingCheckboxes = async function() {
+    console.log('🔄 Refreshing meal shopping checkboxes from external call...');
+    await updateMealShoppingCheckboxes();
+};
+
+// Meal last update date functions
+function updateLastMealUploadDate(): void {
+  const now = new Date();
+  const dateString = now.toLocaleDateString() + ' ' + now.toLocaleTimeString();
+  localStorage.setItem('lastMealUploadDate', dateString);
+  displayLastMealUploadDate();
+}
+
+function displayLastMealUploadDate(): void {
+  const lastUpdate = localStorage.getItem('lastMealUploadDate');
+  const infoElement = document.getElementById('lastMealUpdateInfo');
+  const dateElement = document.getElementById('lastMealUpdateDate');
+  
+  if (lastUpdate && infoElement && dateElement) {
+    dateElement.textContent = lastUpdate;
+    infoElement.style.display = 'block';
+  } else if (infoElement) {
+    infoElement.style.display = 'none';
+  }
+}

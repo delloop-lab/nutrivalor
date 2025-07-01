@@ -118,7 +118,10 @@
             <section id="food-tracker" class="content-section active">
                 <div class="section-header">
                     <h2>Food Tracker</h2>
-                    <button onclick="showUploadModal()" class="load-btn-color">Load Updated Food Data</button>
+                    <div class="section-actions">
+                        <button onclick="showUploadModal()" class="load-btn-color">Load Updated Food Data</button>
+                        <button onclick="handleClearFoodTracker()" class="remove-btn-color">Clear List</button>
+                    </div>
                 </div>
 
                 <!-- Last Update Info -->
@@ -141,7 +144,15 @@
             <section id="meals" class="content-section">
                 <div class="section-header">
                     <h2>Meals</h2>
-                    <button onclick="showMealUploadModal()" class="load-btn-color">Load Updated Meal Data</button>
+                    <div class="section-actions">
+                        <button onclick="showMealUploadModal()" class="load-btn-color">Load Updated Meal Data</button>
+                        <button onclick="handleClearMeals()" class="remove-btn-color">Clear Meals</button>
+                    </div>
+                </div>
+
+                <!-- Last Update Info -->
+                <div id="lastMealUpdateInfo" class="last-update-info" style="display: none;">
+                    <span class="last-update-text">Last Update: <span id="lastMealUpdateDate"></span></span>
                 </div>
 
                 <!-- Meal Filters -->
@@ -179,7 +190,7 @@
                 <div class="section-header">
                     <h2>Meal Plan</h2>
                     <div class="section-actions">
-                        <button onclick="clearAllMealPlanData()" class="clear-data-btn-color">Clear Plan</button>
+                        <button onclick="clearMealShoppingCheckboxes()" class="clear-data-btn-color">Clear</button>
                     </div>
                 </div>
 

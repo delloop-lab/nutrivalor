@@ -212,8 +212,6 @@ function displayLastUploadDate(): void {
   }
 }
 
-
-
 export async function handleFoodFileUpload(event: Event): Promise<void> {
   const input = event.target as HTMLInputElement;
   if (!input.files || input.files.length === 0) return;
@@ -558,6 +556,22 @@ export async function addToShoppingList(foodId: string): Promise<void> {
         return activeCategory === 'all' || food.category?.toLowerCase() === activeCategory.toLowerCase();
       }));
       
+      // Trigger shopping list refresh in the Shopping List module
+      try {
+        if (typeof (window as any).loadAndDisplayShoppingList === 'function') {
+          await (window as any).loadAndDisplayShoppingList();
+          console.log('✅ Shopping list display refreshed');
+        }
+        
+        // Also dispatch custom event for shopping list refresh
+        const refreshEvent = new CustomEvent('shoppingListNeedsRefresh', {
+          detail: { source: 'food-tracker', timestamp: Date.now() }
+        });
+        window.dispatchEvent(refreshEvent);
+      } catch (error) {
+        console.warn('⚠️ Could not refresh shopping list display:', error);
+      }
+      
 
       
     } else {
@@ -752,6 +766,7 @@ declare global {
     handleClearShoppingList: () => void;
     updateShoppingListDisplay: () => void;
     printShoppingList: () => void;
+    handleClearFoodTracker: () => void;
   }
 }
 
@@ -764,6 +779,12 @@ window.clearShoppingList = clearShoppingList;
 window.handleClearShoppingList = handleClearShoppingList;
 window.updateShoppingListDisplay = updateShoppingListDisplay;
 window.printShoppingList = printShoppingList;
+window.handleClearFoodTracker = () => {
+  handleClearFoodTracker().catch(error => {
+    console.error('Error clearing food tracker:', error);
+    showMessage('Error clearing food tracker', 'error');
+  });
+};
 
 // Wrapper function for clear shopping list
 function handleClearShoppingList(): void {
@@ -1041,4 +1062,66 @@ export function printShoppingList(): void {
   printWindow.document.close();
   
   showMessage('Opening print dialog...', 'success');
+}
+
+// Clear all food items from Food Tracker
+export async function handleClearFoodTracker(): Promise<void> {
+  console.log('🗑️ Clear food tracker requested...');
+  
+  if (!allFoods || allFoods.length === 0) {
+    showMessage('Food tracker is already empty!', 'error');
+    return;
+  }
+  
+  const confirmed = confirm(`Are you sure you want to clear all ${allFoods.length} food items from the Food Tracker? This will also clear your shopping list. This action cannot be undone.`);
+  
+  if (!confirmed) {
+    console.log('🚫 Clear food tracker cancelled by user');
+    return;
+  }
+  
+  try {
+    // Get current user
+    const user = await getCurrentAuthUser();
+    if (!user) {
+      showMessage('Please log in first.', 'error');
+      return;
+    }
+    
+    console.log('🗑️ Clearing all foods for user...');
+    
+    // Clear foods from database
+    await clearAllFoodsForUser();
+    
+    // Clear shopping list from database as well since it depends on foods
+    await clearShoppingListFromDatabase();
+    
+    // Clear local data
+    allFoods = [];
+    shoppingList = [];
+    
+    // Update displays
+    displayFoods([]);
+    updateShoppingListDisplay();
+    
+    // Clear category filters (reset to just ALL)
+    const categoryFiltersContainer = document.querySelector('.category-filters');
+    if (categoryFiltersContainer) {
+      categoryFiltersContainer.innerHTML = '<button class="filter-btn active" onclick="filterByCategory(\'all\')">ALL</button>';
+    }
+    
+    // Clear last update info
+    localStorage.removeItem('lastFoodUploadDate');
+    const lastUpdateInfo = document.getElementById('lastUpdateInfo');
+    if (lastUpdateInfo) {
+      lastUpdateInfo.style.display = 'none';
+    }
+    
+    showMessage('Food tracker and shopping list cleared successfully!', 'success');
+    console.log('✅ Food tracker cleared successfully');
+    
+  } catch (error) {
+    console.error('❌ Error clearing food tracker:', error);
+    showMessage('Error clearing food tracker: ' + (error as Error).message, 'error');
+  }
 }
