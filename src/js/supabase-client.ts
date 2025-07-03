@@ -24,9 +24,7 @@ export interface Storage {
 export function initializeSupabase(): void {
   try {
     supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    console.log('✅ Supabase client initialized successfully');
   } catch (error) {
-    console.warn('⚠️ Supabase initialization failed, using localStorage fallback:', error);
     supabase = null;
   }
 }
@@ -45,7 +43,6 @@ export async function isAuthenticated(): Promise<boolean> {
       const { data: { user } } = await supabase.auth.getUser();
       return !!user;
     } catch (error) {
-      console.error('Error checking authentication:', error);
       return false;
     }
   }
@@ -60,14 +57,10 @@ export async function getCurrentUser(): Promise<User | null> {
       const { data: { user } } = await supabase.auth.getUser();
       return user;
     } catch (error) {
-      console.error('Error getting current user:', error);
       return null;
     }
   }
   // Fallback to localStorage
   const userData = localStorageWrapper.getItem('currentUser');
   return userData ? JSON.parse(userData) : null;
-}
-
-// Initialize on module load
-initializeSupabase(); 
+} 

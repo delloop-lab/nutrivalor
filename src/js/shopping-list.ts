@@ -9,7 +9,7 @@ let currentShoppingList: any[] = [];
 
 // Initialize shopping list functionality
 export async function initializeShoppingList(): Promise<void> {
-  console.log('🛒 Initializing shopping list...');
+  // Removed excessive logging for performance
   await loadAndDisplayShoppingList();
   
   // Set up event listener for cross-module refresh requests
@@ -24,28 +24,30 @@ export async function initializeShoppingList(): Promise<void> {
     }
   });
   
-  console.log('🎧 Shopping list event listeners set up');
+      // Removed excessive logging for performance
 }
 
 // Load and display shopping list
 export async function loadAndDisplayShoppingList(): Promise<void> {
   try {
-    console.log('🛒 Loading shopping list from database...');
+      // Removed excessive logging for performance
     const items = await loadShoppingListFromDatabase();
+    
+    // Removed excessive logging for performance
     
     // Update local cache
     currentShoppingList = items || [];
     
-    console.log(`🛒 Loaded ${currentShoppingList.length} items from shopping list`);
-    console.log('🛒 Shopping list items:', currentShoppingList);
+    // Removed excessive logging for performance
     
+    // Removed excessive logging for performance
     displayShoppingList(currentShoppingList);
     
     // Refresh meal plan checkboxes to reflect current shopping list state
     try {
       if (typeof (window as any).refreshMealShoppingCheckboxes === 'function') {
         await (window as any).refreshMealShoppingCheckboxes();
-        console.log('✅ Meal plan checkboxes refreshed after loading shopping list');
+        // Removed excessive logging for performance
       }
     } catch (error) {
       console.warn('⚠️ Could not refresh meal plan checkboxes:', error);
@@ -70,15 +72,19 @@ function consolidateItems(items: any[]): any[] {
     const key = `${item.name.toLowerCase().trim()}_${brand.toLowerCase().trim()}_${category.toLowerCase().trim()}`;
     
     console.log(`🔍 Processing item: ${item.name}, Brand: ${brand}, Category: ${category}, Key: ${key}`);
+    console.log(`🔍 Item quantity RAW: value="${item.quantity}", type="${typeof item.quantity}", parsed=${parseInt(item.quantity)}`);
     
     if (consolidated[key]) {
       // Item already exists, add quantities together
-      consolidated[key].quantity += item.quantity;
-      console.log(`🔄 Consolidated ${item.name}: ${consolidated[key].quantity} total quantity`);
+      const oldQty = consolidated[key].quantity;
+      const addQty = parseInt(item.quantity) || 1;
+      consolidated[key].quantity = (parseInt(oldQty) || 1) + addQty;
+      console.log(`🔄 Consolidated ${item.name}: ${oldQty} + ${addQty} = ${consolidated[key].quantity} total quantity`);
     } else {
       // New item, add to consolidated list
-      consolidated[key] = { ...item };
-      console.log(`➕ Added new item: ${item.name} with quantity ${item.quantity}`);
+      const quantity = parseInt(item.quantity) || 1;
+      consolidated[key] = { ...item, quantity: quantity };
+      console.log(`➕ Added new item: ${item.name} with quantity ${quantity} (original: ${item.quantity}, type: ${typeof item.quantity})`);
     }
   });
   
@@ -91,9 +97,7 @@ function displayShoppingList(items: any[]): void {
   const shoppingItemsContainer = document.getElementById('shoppingItems');
   const shoppingTotalsContainer = document.getElementById('shoppingTotals');
   
-  console.log('🛒 displayShoppingList called with:', items.length, 'items');
-  console.log('🛒 Items data:', items);
-  console.log('🛒 currentShoppingList length:', currentShoppingList.length);
+  // Removed excessive logging for performance
   
   if (!shoppingItemsContainer) {
     console.warn('❌ Shopping items container not found');
@@ -107,7 +111,7 @@ function displayShoppingList(items: any[]): void {
   }
 
   if (!items || items.length === 0) {
-    console.log('🛒 Displaying empty state');
+    // Removed excessive logging for performance
     shoppingItemsContainer.innerHTML = '<p class="empty-state">Your shopping list is empty. Add items from the Food Tracker!</p>';
     // Ensure totals are hidden for empty state
     if (shoppingTotalsContainer) {
@@ -276,13 +280,26 @@ export async function updateItemQuantity(id: string, newQuantity: number): Promi
 }
 
 // Clear all items from shopping list
-export async function clearAllShoppingItems(): Promise<void> {
+export async function clearAllShoppingItems(skipDatabase: boolean = false): Promise<void> {
+  console.log('🧹 SHOPPING-LIST: Starting shopping list clear...');
+  
   try {
-    // Remove all items one by one
-    for (const item of currentShoppingList) {
-      await removeFromShoppingList(item.id);
+    // Clear from database only if not skipped (to avoid double-clearing)
+    if (!skipDatabase) {
+      const { clearShoppingListFromDatabase } = await import('./database');
+      await clearShoppingListFromDatabase();
+      console.log('✅ Database cleared successfully');
+    } else {
+      console.log('⏭️ Database clear skipped (already done by food-tracker)');
     }
-    await loadAndDisplayShoppingList(); // Refresh display
+    
+    // Clear local array
+    currentShoppingList = [];
+    console.log('✅ Local shopping list array cleared');
+    
+    // Update display
+    displayShoppingList([]);
+    console.log('✅ Display updated');
     
     // Refresh meal plan checkboxes to reflect changes
     try {
@@ -294,10 +311,14 @@ export async function clearAllShoppingItems(): Promise<void> {
       console.warn('⚠️ Could not refresh meal plan checkboxes:', error);
     }
     
-    showMessage('Shopping list cleared', 'success');
+    if (!skipDatabase) {
+      showMessage('Shopping list cleared', 'success');
+    }
   } catch (error) {
-    console.error('Error clearing shopping list:', error);
-    showMessage('Error clearing shopping list', 'error');
+    console.error('❌ Error clearing shopping list:', error);
+    if (!skipDatabase) {
+      showMessage('Error clearing shopping list', 'error');
+    }
   }
 }
 
@@ -349,7 +370,9 @@ declare global {
 (window as any).updateItemQuantity = updateItemQuantity;
 (window as any).loadAndDisplayShoppingList = loadAndDisplayShoppingList;
 (window as any).printShoppingList = printShoppingList;
-(window as any).handleClearShoppingList = handleClearShoppingList;
+(window as any).clearAllShoppingItems = clearAllShoppingItems;
+(window as any).getCurrentShoppingList = getCurrentShoppingList;
+// Note: Don't expose handleClearShoppingList here since food-tracker.ts handles the main clear button
 
 // Print shopping list
 export function printShoppingList(): void {

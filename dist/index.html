@@ -6,8 +6,8 @@
     <title>NutriValor - Food Tracking Web App</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Poppins:wght@600;700&display=swap" rel="stylesheet">
     <link rel="icon" type="image/png" href="/assets/nutrime-akfdXWxP.png">
-  <script type="module" crossorigin src="/assets/main-Clr-snp3.js"></script>
-  <link rel="stylesheet" crossorigin href="/assets/main-CPoN1Fs4.css">
+  <script type="module" crossorigin src="/assets/main-BEAKZ9OB.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/main-CPFtL634.css">
 </head>
 <body>
     <!-- Loading Screen -->
@@ -110,6 +110,9 @@
                 </button>
                 <button class="nav-tab" onclick="showSection('settings')" data-section="settings">
                     Settings
+                </button>
+                <button class="nav-tab" onclick="showSection('admin')" data-section="admin" id="adminTab" style="display: none;">
+                    Admin
                 </button>
             </div>
         </nav>
@@ -429,7 +432,13 @@
                             
                             <div class="input-group">
                                 <label for="profileIdealWeight">Ideal Weight:</label>
-                                <input type="number" id="profileIdealWeight" step="0.1" placeholder="kg">
+                                <div class="weight-input-group">
+                                    <input type="number" id="profileIdealWeight" step="0.1" placeholder="Weight">
+                                    <select id="weightUnit">
+                                        <option value="kg">kg</option>
+                                        <option value="lbs">lbs</option>
+                                    </select>
+                                </div>
                             </div>
                         </div>
                         
@@ -513,6 +522,105 @@
                             <button onclick="exportData()" class="export-btn-color">Export Data</button>
                             <button onclick="clearAllData()" class="clear-data-btn-color">Clear All Data</button>
                         </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Admin Section -->
+            <section id="admin" class="content-section">
+                <div class="section-header">
+                    <h2>Admin Panel</h2>
+                    <div class="role-display">
+                        <span id="currentUserRole" class="role-badge">Loading...</span>
+                    </div>
+                </div>
+
+                <!-- User Management Section -->
+                <div class="admin-content">
+                    <div class="admin-card">
+                        <h3>User Management</h3>
+                        <p class="admin-description">Grant or revoke admin privileges for users (Super Admin only)</p>
+                        
+                        <div class="user-management-container">
+                            <div class="user-list-header">
+                                <h4>All Users</h4>
+                                <button onclick="refreshUserList()" class="refresh-btn">Refresh</button>
+                            </div>
+                            
+                            <div id="userListContainer" class="user-list">
+                                <div class="loading-users">Loading users...</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Food Management Card -->
+                    <div class="admin-card">
+                        <h3>Food Database Management</h3>
+                        <p class="admin-description">Add new food items to the global food database</p>
+                        
+                        <!-- Add Food Form -->
+                        <form id="addFoodForm" class="add-food-form">
+                            <div class="food-form-grid">
+                                <div class="input-group">
+                                    <label for="foodName">Food Name *</label>
+                                    <input type="text" id="foodName" name="foodName" required placeholder="e.g., Almond Milk - Unsweetened">
+                                    <div id="duplicateWarning" class="duplicate-warning" style="display: none;">
+                                        ⚠️ This food item already exists in the database
+                                    </div>
+                                </div>
+                                
+                                <div class="input-group">
+                                    <label for="foodBrand">Brand (Optional)</label>
+                                    <input type="text" id="foodBrand" name="foodBrand" placeholder="e.g., Silk, Organic Valley">
+                                </div>
+                                
+                                <div class="input-group">
+                                    <label for="foodCategory">Category</label>
+                                    <select id="foodCategory" name="foodCategory" required>
+                                        <option value="">Select Category</option>
+                                        <option value="VEGETABLES">Vegetables</option>
+                                        <option value="SALAD">Salad</option>
+                                        <option value="DAIRY">Dairy</option>
+                                        <option value="PROTEIN">Protein</option>
+                                        <option value="CONDIMENTS">Condiments</option>
+                                        <option value="DRINKS">Drinks</option>
+                                        <option value="OTHER">Other</option>
+                                    </select>
+                                </div>
+                                
+                                <div class="input-group">
+                                    <label for="foodCarbs">Carbs (g)</label>
+                                    <input type="number" id="foodCarbs" name="foodCarbs" step="0.1" min="0" placeholder="0" value="0">
+                                </div>
+                                
+                                <div class="input-group">
+                                    <label for="foodFat">Fat (g)</label>
+                                    <input type="number" id="foodFat" name="foodFat" step="0.1" min="0" placeholder="0" value="0">
+                                </div>
+                                
+                                <div class="input-group">
+                                    <label for="foodProtein">Protein (g)</label>
+                                    <input type="number" id="foodProtein" name="foodProtein" step="0.1" min="0" placeholder="0" value="0">
+                                </div>
+                            </div>
+                            
+                            <div class="form-actions">
+                                <button type="submit" class="save-btn-color">Add Food Item</button>
+                                <button type="reset" class="cancel-btn">Clear Form</button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- Future Features Card -->
+                    <div class="admin-card future-features">
+                        <h3>Coming Soon</h3>
+                        <p class="admin-description">Additional admin features will be added here:</p>
+                        <ul class="feature-list">
+                            <li>Recipe Management</li>
+                            <li>System Analytics</li>
+                            <li>User Activity Logs</li>
+                            <li>Food Database Analytics</li>
+                        </ul>
                     </div>
                 </div>
             </section>

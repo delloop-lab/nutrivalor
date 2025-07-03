@@ -1,5 +1,6 @@
 import { supabase } from './supabase-client.ts';
 import * as XLSX from 'xlsx';
+import { allFoods } from './food-tracker';
 
 interface MealIngredient {
     name: string;
@@ -8,13 +9,17 @@ interface MealIngredient {
     protein?: number;
     instructions: string;
     row: number;
+    // Additional fields from admin panel
+    food_name?: string;
+    food_id?: string;
+    quantity?: number;
 }
 
 interface Meal {
     id?: string;
     number: string;
     name: string;
-    mealType: string;
+    meal_type: string;  // Changed from mealType to match database
     ingredients: MealIngredient[];
     totalCarbs: number;
     totalFat: number;
@@ -24,6 +29,9 @@ interface Meal {
     endRow: number;
     images: any[];
     user_id?: string;
+    created_by?: string;
+    cooking_instructions?: string;
+    image_url?: string;
 }
 
 interface MealPlan {
@@ -35,14 +43,23 @@ interface MealPlan {
 let currentMeals: Meal[] = [];
 let mealPlan: MealPlan = {};
 
+// Export currentMeals as allMeals for consistency with food-tracker
+export const allMeals = currentMeals;
+
 export async function initializeMeals() {
-    console.log('🍽️ Initializing Meals module');
+    // Removed excessive logging for performance
     await loadUserMeals();
     setupMealEventListeners();
     loadWeeklyMealPlan(); // Load saved weekly meal plan data
     updateWeeklyMealPlanDisplay(); // Initialize the weekly meal plan grid
     displayLastMealUploadDate(); // Display last meal update date
-    console.log('✅ Meals module initialized successfully');
+    // Removed excessive logging for performance
+}
+
+// Export function to reload meals (can be called from admin after creating new meals)
+export async function reloadMeals() {
+    console.log('🔄 Reloading meals...');
+    await loadUserMeals();
 }
 
 function setupMealEventListeners() {
@@ -202,7 +219,7 @@ function parseMealData(jsonData: any[][]): Meal[] {
                 id: mealId,
                 number: mealNumber,
                 name: mealName,
-                mealType: currentMealType || 'OTHER',
+                meal_type: currentMealType || 'OTHER',
                 ingredients: [],
                 totalCarbs: 0,
                 totalFat: 0,
@@ -315,7 +332,7 @@ async function saveMealsToDatabase(meals: Meal[], userId: string) {
             user_id: userId,
             number: meal.number,
             name: meal.name,
-            meal_type: meal.mealType,
+            meal_type: meal.meal_type,
             ingredients: JSON.stringify(meal.ingredients),
             total_carbs: meal.totalCarbs,
             // TODO: Add total_fat and total_protein when database schema is updated
@@ -342,92 +359,13 @@ async function saveMealsToDatabase(meals: Meal[], userId: string) {
 
 async function loadUserMeals() {
     try {
-        if (!supabase) {
-            console.log('❌ Database not available, checking localStorage...');
-            loadMealsFromLocalStorage();
-            return;
-        }
-        
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) {
-            console.log('❌ No user logged in, checking localStorage...');
-            loadMealsFromLocalStorage();
-            return;
-        }
-        
-        const { data, error } = await supabase
-            .from('meals')
-            .select('*')
-            .eq('user_id', user.id)
-            .order('start_row');
-        
-        if (error) {
-            console.error('❌ Error loading meals from database:', error);
-            console.log('📂 Falling back to localStorage...');
-            loadMealsFromLocalStorage();
-            return;
-        }
-        
-        if (data && data.length > 0) {
-            currentMeals = data.map(dbMeal => ({
-                id: dbMeal.id,
-                number: dbMeal.number,
-                name: dbMeal.name,
-                mealType: dbMeal.meal_type,
-                ingredients: JSON.parse(dbMeal.ingredients || '[]'),
-                totalCarbs: dbMeal.total_carbs || 0,
-                totalFat: 0, // Will be loaded from database when schema is updated
-                totalProtein: 0, // Will be loaded from database when schema is updated
-                picture: dbMeal.picture,
-                startRow: dbMeal.start_row,
-                endRow: dbMeal.end_row,
-                images: [],
-                user_id: dbMeal.user_id
-            }));
-            
-            // Also save to localStorage as backup
-            localStorage.setItem('nutrivalor_meals', JSON.stringify(currentMeals));
-            
-            console.log(`📂 Loaded ${currentMeals.length} meals from database`);
-            displayMeals(currentMeals);
-        } else {
-            console.log('📂 No existing meals found in database, checking localStorage...');
-            loadMealsFromLocalStorage();
-        }
+        const meals = await loadMealsFromDatabase();
+        // Update the array in place to maintain references
+        currentMeals.length = 0;
+        currentMeals.push(...meals);
+        displayMeals(currentMeals);
     } catch (error) {
-        console.error('❌ Error loading user meals:', error);
-        console.log('📂 Falling back to localStorage...');
-        loadMealsFromLocalStorage();
-    }
-}
-
-function loadMealsFromLocalStorage() {
-    const saved = localStorage.getItem('nutrivalor_meals');
-    if (saved) {
-        try {
-            const loadedMeals = JSON.parse(saved);
-            
-            // Ensure all meals have IDs
-            currentMeals = loadedMeals.map((meal: any, index: number) => {
-                if (!meal.id) {
-                    // Generate an ID if it doesn't exist
-                    meal.id = `meal_${meal.name.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase()}_${index}`;
-                    console.log(`🔧 Generated ID for meal: ${meal.name} -> ${meal.id}`);
-                }
-                return meal;
-            });
-            
-            // Save back to localStorage with IDs
-            localStorage.setItem('nutrivalor_meals', JSON.stringify(currentMeals));
-            
-            console.log(`📂 Loaded ${currentMeals.length} meals from localStorage`);
-            displayMeals(currentMeals);
-        } catch (error) {
-            console.error('❌ Error loading meals from localStorage:', error);
-            showNoMealsState();
-        }
-    } else {
-        console.log('📂 No meals found in localStorage');
+        console.error('Error loading meals:', error);
         showNoMealsState();
     }
 }
@@ -439,22 +377,31 @@ function showNoMealsState() {
     if (availableMealsGrid) availableMealsGrid.innerHTML = '<p class="no-data">No meals loaded. Please upload your meal Excel file.</p>';
 }
 
-function displayMeals(meals: Meal[], skipFilterUpdate: boolean = false) {
-    const mealGrid = document.getElementById('mealGrid');
-    const availableMealsGrid = document.getElementById('availableMealsGrid');
-    
-    // Update category filters based on available meal types (but only if not filtering)
-    if (meals.length > 0 && !skipFilterUpdate) {
-        updateMealCategoryFilters(currentMeals); // Use all meals for filter generation, not just filtered ones
+// Make displayMeals function available for other modules
+export function displayMeals(meals: Meal[], skipFilterUpdate: boolean = false) {
+    if (!meals || meals.length === 0) {
+        showNoMealsState();
+        return;
     }
-    
-    // Display in both main meals section and meal plan section
-    if (mealGrid) updateMealGrid(mealGrid, meals);
-    if (availableMealsGrid) updateMealGrid(availableMealsGrid, meals);
-    
-    // Also update the weekly meal plan
+
+    // Update category filters if needed
     if (!skipFilterUpdate) {
-        initializeWeeklyMealPlan();
+        updateMealCategoryFilters(meals);
+    }
+
+    // Get active category filter
+    const activeFilterBtn = document.querySelector('.meal-filters .filter-btn.active');
+    const activeCategory = activeFilterBtn?.getAttribute('data-category')?.toUpperCase() || 'ALL';
+
+    // Filter meals if category is not ALL
+    const filteredMeals = activeCategory === 'ALL' ? 
+        meals : 
+        meals.filter(meal => meal.meal_type === activeCategory);
+
+    // Get container and update grid
+    const container = document.getElementById('mealGrid');
+    if (container) {
+        updateMealGrid(container, filteredMeals);
     }
 }
 
@@ -466,8 +413,8 @@ function updateMealCategoryFilters(meals: Meal[]): void {
     }
 
     // Extract unique meal types from loaded meals
-    const availableMealTypes = [...new Set(meals.map(meal => meal.mealType).filter(type => type))];
-    console.log('🔍 Available meal types:', availableMealTypes);
+    const availableMealTypes = [...new Set(meals.map(meal => meal.meal_type).filter(type => type))];
+    // Removed excessive logging for performance
     
     // Define the order of meal categories
     const mealTypeOrder = ['BREAKFAST', 'LUNCH', 'DINNER', 'SNACKS', 'SAUCES', 'OTHER'];
@@ -477,7 +424,7 @@ function updateMealCategoryFilters(meals: Meal[]): void {
     
     // Update all meal filter containers (both meals section and meal plan section)
     mealFiltersContainers.forEach((container, containerIndex) => {
-        console.log(`📝 Updating filter container ${containerIndex + 1}`);
+        // Removed excessive logging for performance
         
         // Generate filter buttons (ALL button will be active by default)
         container.innerHTML = categories.map((category, index) => {
@@ -497,7 +444,7 @@ function updateMealCategoryFilters(meals: Meal[]): void {
         }).join('');
     });
     
-    console.log(`✅ Created meal filters for categories: ${categories.join(', ')}`);
+    // Removed excessive logging for performance
 }
 
 function updateMealGrid(container: HTMLElement, meals: Meal[]) {
@@ -509,8 +456,8 @@ function updateMealGrid(container: HTMLElement, meals: Meal[]) {
     // Sort meals by meal type in the desired order: Breakfast, Lunch, Dinner, then others
     const mealTypeOrder = ['Breakfast', 'Lunch', 'Dinner', 'Snacks', 'Sauces'];
     const sortedMeals = [...meals].sort((a, b) => {
-        const aIndex = mealTypeOrder.indexOf(a.mealType);
-        const bIndex = mealTypeOrder.indexOf(b.mealType);
+        const aIndex = mealTypeOrder.indexOf(a.meal_type);
+        const bIndex = mealTypeOrder.indexOf(b.meal_type);
         
         // If both meal types are in our order array, sort by that order
         if (aIndex !== -1 && bIndex !== -1) {
@@ -520,7 +467,7 @@ function updateMealGrid(container: HTMLElement, meals: Meal[]) {
         if (aIndex !== -1) return -1;
         if (bIndex !== -1) return 1;
         // If neither is in our order array, sort alphabetically
-        return a.mealType.localeCompare(b.mealType);
+        return a.meal_type.localeCompare(b.meal_type);
     });
     
     // Display all meals in a continuous 3-column grid
@@ -530,24 +477,43 @@ function updateMealGrid(container: HTMLElement, meals: Meal[]) {
     });
     
     container.innerHTML = html;
-    console.log(`✅ Displayed ${meals.length} meals in continuous 3-column layout`);
+    // Removed excessive logging for performance
 }
 
 function generateMealCardHTML(meal: Meal): string {
-    // Calculate total nutritional values from ingredients
-    const totalCarbs = meal.ingredients.reduce((sum, ing) => sum + (ing.carbs || 0), 0);
-    const totalFat = meal.ingredients.reduce((sum, ing) => sum + (ing.fat || 0), 0);
-    const totalProtein = meal.ingredients.reduce((sum, ing) => sum + (ing.protein || 0), 0);
+    // Removed excessive logging for performance
+    // Use stored total nutritional values, or calculate from ingredients as fallback
+    const totalCarbs = meal.totalCarbs || meal.ingredients.reduce((sum, ing) => sum + (ing.carbs || 0), 0);
+    const totalFat = meal.totalFat || meal.ingredients.reduce((sum, ing) => sum + (ing.fat || 0), 0);
+    const totalProtein = meal.totalProtein || meal.ingredients.reduce((sum, ing) => sum + (ing.protein || 0), 0);
     
-    // Prepare image path - try multiple approaches to match images
+    // Prepare image path - handle both base64 data and image filenames
     let imagePath = null;
+    let imageDisplayName = meal.name;
+    
     if (meal.picture) {
-        // Try exact match first
-        imagePath = `/images/${meal.picture}`;
+        if (meal.picture.startsWith('data:image/')) {
+            // Base64 image data from admin form
+            imagePath = meal.picture;
+            imageDisplayName = 'Uploaded Image';
+        } else if (meal.picture.startsWith('http')) {
+            // Full URL
+            imagePath = meal.picture;
+            imageDisplayName = meal.picture.split('/').pop() || meal.name;
+        } else {
+            // Filename - try to match in images folder
+            imagePath = `/images/${meal.picture}`;
+            imageDisplayName = meal.picture;
+        }
     } else {
-        // Try using meal name as fallback
+        // Try using meal name as fallback for images folder
         const cleanName = meal.name.replace(/[^\w\s]/g, '').trim();
         imagePath = `/images/${cleanName}.jpg`;
+        imageDisplayName = `${cleanName}.jpg`;
+    }
+    
+    if (meal.name && meal.name.toLowerCase().includes('bacon and eggs')) {
+        // Removed debug logging for performance
     }
     
     return `
@@ -561,7 +527,7 @@ function generateMealCardHTML(meal: Meal): string {
                         <span class="image-icon">📷</span>
                         <div class="fallback-text">No Image</div>
                     </div>
-                    <div class="meal-image-name">${meal.picture || meal.name}</div>
+                    <div class="meal-image-name">${imageDisplayName}</div>
                 </div>
             ` : `
                 <div class="meal-image-container">
@@ -573,15 +539,22 @@ function generateMealCardHTML(meal: Meal): string {
             `}
             <div class="meal-header">
                 <h4 class="meal-name">${meal.name}</h4>
+                <div class="meal-creator">Created By: ${meal.created_by}</div>
             </div>
+            ${meal.cooking_instructions ? `
+                <div class="cooking-instructions">
+                    <h5>Cooking Instructions:</h5>
+                    <div class="instructions-content">${meal.cooking_instructions}</div>
+                </div>
+            ` : ''}
             <div class="meal-ingredients">
                 ${meal.ingredients.map(ing => `
                     <div class="ingredient-item">
-                        <span class="ingredient-name">${ing.name}</span>
+                        <span class="ingredient-name">${ing.name || ing.food_name || 'Unknown Ingredient'}</span>
                         <div class="ingredient-nutrition">
                             <span class="ingredient-carbs">${formatNutrition(ing.carbs)}g carbs</span>
-                            ${ing.fat ? `<span class="ingredient-fat">${formatNutrition(ing.fat)}g fat</span>` : ''}
-                            ${ing.protein ? `<span class="ingredient-protein">${formatNutrition(ing.protein)}g protein</span>` : ''}
+                            <span class="ingredient-fat">${formatNutrition(ing.fat || 0)}g fat</span>
+                            <span class="ingredient-protein">${formatNutrition(ing.protein || 0)}g protein</span>
                         </div>
                         ${ing.instructions ? `<div class="ingredient-instructions">${ing.instructions}</div>` : ''}
                     </div>
@@ -614,10 +587,10 @@ function generateMealCardHTML(meal: Meal): string {
                             <div class="dropdown-section">
                                 <label>Meal Time:</label>
                                 <select class="meal-time-select" id="mealtime-${meal.id}">
-                                    <option value="breakfast" ${meal.mealType.toLowerCase() === 'breakfast' ? 'selected' : ''}>Breakfast</option>
-                                    <option value="lunch" ${meal.mealType.toLowerCase() === 'lunch' ? 'selected' : ''}>Lunch</option>
-                                    <option value="dinner" ${meal.mealType.toLowerCase() === 'dinner' ? 'selected' : ''}>Dinner</option>
-                                    <option value="snack" ${meal.mealType.toLowerCase() === 'snack' || meal.mealType.toLowerCase() === 'snacks' ? 'selected' : ''}>Snack</option>
+                                    <option value="breakfast" ${meal.meal_type.toLowerCase() === 'breakfast' ? 'selected' : ''}>Breakfast</option>
+                                    <option value="lunch" ${meal.meal_type.toLowerCase() === 'lunch' ? 'selected' : ''}>Lunch</option>
+                                    <option value="dinner" ${meal.meal_type.toLowerCase() === 'dinner' ? 'selected' : ''}>Dinner</option>
+                                    <option value="snack" ${meal.meal_type.toLowerCase() === 'snack' || meal.meal_type.toLowerCase() === 'snacks' ? 'selected' : ''}>Snack</option>
                                 </select>
                             </div>
                             <div class="dropdown-actions">
@@ -630,6 +603,12 @@ function generateMealCardHTML(meal: Meal): string {
             </div>
         </div>
     `;
+
+    if (meal.name && meal.name.toLowerCase().includes('bacon')) {
+        meal.ingredients.forEach(ing => {
+            console.log('🐞 Ingredient in Bacon meal:', ing);
+        });
+    }
 }
 
 function initializeWeeklyMealPlan() {
@@ -793,7 +772,7 @@ export function filterMealsByCategory(category: string): void {
         filteredMeals = currentMeals;
     } else {
         filteredMeals = currentMeals.filter(meal => {
-            return meal.mealType.toUpperCase() === category.toUpperCase();
+            return meal.meal_type.toUpperCase() === category.toUpperCase();
         });
     }
     
@@ -925,12 +904,20 @@ function addMealToWeeklyPlan(mealId: string, mealName: string) {
     }
 
     // Check if meal is already in that slot
+    console.log(`🔍 DUPLICATE CHECK: Looking for meal ID "${mealId}" in ${selectedDay} ${selectedMealTime}`);
+    console.log(`🔍 DUPLICATE CHECK: Current meals in that slot:`, weeklyMealPlan[selectedDay][selectedMealTime]);
+    console.log(`🔍 DUPLICATE CHECK: Meal IDs in that slot:`, weeklyMealPlan[selectedDay][selectedMealTime].map(m => m.id));
+    
     const existingMeal = weeklyMealPlan[selectedDay][selectedMealTime].find(m => m.id === mealId);
     if (existingMeal) {
+        console.log(`❌ DUPLICATE CHECK: Found existing meal:`, existingMeal);
         showMealMessage(`${mealName} is already planned for ${selectedDay} ${selectedMealTime}`, 'error');
         hideMealPlanDropdown(mealId);
         return;
     }
+    
+    console.log(`✅ DUPLICATE CHECK: No duplicate found, proceeding to add meal`);
+    
 
     // Add meal to the selected day and time
     weeklyMealPlan[selectedDay][selectedMealTime].push(meal);
@@ -1013,7 +1000,7 @@ function updateWeeklyMealPlanDisplay() {
                                                 class="meal-shopping-checkbox" 
                                                 id="shopping-${meal.id}-${day}-${mealType}"
                                                 title="Add ingredients to Shopping List"
-                                                onchange="handleMealToShoppingList('${meal.id}', '${meal.name.replace(/'/g, "\\'")}', this.checked)"
+                                                onchange="console.log('📦 CHECKBOX EVENT: Checkbox clicked!', this.id, this.checked); handleMealToShoppingList('${meal.id}', '${meal.name.replace(/'/g, "\\'")}', this.checked)"
                                             />
                                             <span class="planned-meal-name">${meal.name}</span>
                                         </div>
@@ -1056,24 +1043,21 @@ function updateWeeklyMealPlanDisplay() {
 // Function to check shopping list and update checkboxes accordingly
 async function updateMealShoppingCheckboxes() {
     try {
-        console.log('🔄 Updating meal shopping checkboxes based on current shopping list...');
+        // Removed excessive logging for performance
         
         // Load current shopping list items
         const shoppingListItems = await loadShoppingListItems();
-        console.log(`📊 Found ${shoppingListItems.length} items in shopping list`);
+        // Removed excessive logging for performance
         
         // Load current foods for matching
         const allFoods = await loadFoodsForMatching();
-        console.log(`📊 Found ${allFoods.length} foods available for matching`);
+        // Removed excessive logging for performance
         
         // Create a set of shopping list item identifiers for quick lookup
         const shoppingItemIds = new Set(shoppingListItems.map(item => item.food_id).filter(id => id !== null));
         const shoppingItemNames = new Set(shoppingListItems.map(item => item.name.toLowerCase().trim()));
         
-        console.log('🔍 Shopping list contains:', {
-            foodIds: Array.from(shoppingItemIds),
-            names: Array.from(shoppingItemNames)
-        });
+        // Removed excessive logging for performance
         
         // Check each meal in the weekly plan
         Object.keys(weeklyMealPlan).forEach(day => {
@@ -1117,7 +1101,7 @@ async function updateMealShoppingCheckboxes() {
             });
         });
         
-        console.log('✅ Meal shopping checkboxes updated based on current shopping list');
+        // Removed excessive logging for performance
         
     } catch (error) {
         console.error('Error updating meal shopping checkboxes:', error);
@@ -1156,16 +1140,33 @@ async function loadShoppingListItems(): Promise<any[]> {
 
 // Load weekly meal plan from localStorage
 function loadWeeklyMealPlan() {
+    // Removed excessive logging for performance
     const saved = localStorage.getItem('nutrivalor_weekly_meal_plan');
     if (saved) {
         try {
             weeklyMealPlan = JSON.parse(saved);
+            console.log(`✅ Loaded weekly meal plan:`, weeklyMealPlan);
+            
+            // Log each day's contents for debugging
+            Object.keys(weeklyMealPlan).forEach(day => {
+                console.log(`📅 ${day}:`, weeklyMealPlan[day]);
+                Object.keys(weeklyMealPlan[day]).forEach(mealTime => {
+                    const meals = weeklyMealPlan[day][mealTime];
+                    if (meals && meals.length > 0) {
+                        console.log(`  🕐 ${mealTime}: ${meals.length} meals`, meals.map(m => `ID: ${m.id}, Name: ${m.name}`));
+                    }
+                });
+            });
+            
             updateWeeklyMealPlanDisplay();
             console.log('📅 Loaded weekly meal plan from localStorage');
         } catch (error) {
             console.error('Error loading weekly meal plan:', error);
             weeklyMealPlan = {};
         }
+    } else {
+        // Removed excessive logging for performance
+        weeklyMealPlan = {};
     }
 }
 
@@ -1187,6 +1188,27 @@ function clearAllMealPlanData() {
         showMealMessage('All meal plan data has been cleared!', 'success');
         console.log('🗑️ All meal plan data cleared');
     }
+}
+
+// Clear all meal data silently for logout/user switching
+export function clearAllMealData() {
+    console.log('🧹 Clearing all meal data for user switch...');
+    
+    // Clear in-memory data
+    currentMeals = [];
+    weeklyMealPlan = {};
+    mealPlan = {};
+    
+    // Clear localStorage
+    localStorage.removeItem('nutrivalor_meals');
+    localStorage.removeItem('nutrivalor_weekly_meal_plan');
+    localStorage.removeItem('nutrivalor_meal_plan');
+    
+    // Clear displays
+    updateWeeklyMealPlanDisplay();
+    displayMealPlan();
+    
+    console.log('✅ All meal data cleared for next user');
 }
 
 // Clear meal shopping checkboxes only (not the meal plan data)
@@ -1278,9 +1300,6 @@ function clearMealShoppingCheckboxes() {
     }
 };
 
-// Test global function availability
-console.log('🧪 Testing global filterMealsByCategory function availability:', typeof (window as any).filterMealsByCategory);
-
 // Meal to Shopping List functionality
 async function handleMealToShoppingList(mealId: string, mealName: string, isChecked: boolean): Promise<void> {
     console.log(`🛒 handleMealToShoppingList called - mealId: "${mealId}", mealName: "${mealName}", isChecked: ${isChecked}`);
@@ -1288,9 +1307,9 @@ async function handleMealToShoppingList(mealId: string, mealName: string, isChec
     console.log(`🔍 Available meal IDs:`, currentMeals.map(m => m.id));
     
     if (!isChecked) {
-        // If unchecked, we could implement removal logic here
-        // For now, we'll just show a message
-        showMealMessage('Note: Ingredients are not automatically removed from shopping list when unchecked', 'info');
+        // When unchecked, just show info message but allow future additions
+        showMealMessage('Checkbox unchecked - you can check it again to add more ingredients', 'info');
+        console.log(`📋 Checkbox unchecked for meal: ${mealName}. Ready for future additions.`);
         return;
     }
     
@@ -1317,60 +1336,36 @@ async function handleMealToShoppingList(mealId: string, mealName: string, isChec
         const matched = results.matched.length;
         const unmatched = results.unmatched.length;
         
-        let message = `Added ${matched + unmatched} ingredients to shopping list`;
+        let message = `Added ${matched + unmatched} more ingredients to shopping list`;
         if (matched > 0) message += ` (${matched} matched from Food Tracker`;
         if (unmatched > 0) message += `, ${unmatched} added to SUNDRIES`;
         if (matched > 0 || unmatched > 0) message += ')';
+        message += ` - quantities increased!`;
         
         showMealMessage(message, 'success');
         
         // Small delay to ensure database operations complete
         await new Promise(resolve => setTimeout(resolve, 500));
         
-        // Update shopping list display using multiple approaches for reliability
-        console.log('🔄 Refreshing shopping list display...');
-        let refreshSuccess = false;
+        // Update shopping list display - reload from database first
+        console.log('🔄 Reloading food-tracker shopping list from database...');
         
         try {
-            // Method 1: Try global function
-            if (typeof (window as any).loadAndDisplayShoppingList === 'function') {
-                await (window as any).loadAndDisplayShoppingList();
-                refreshSuccess = true;
-                console.log('✅ Shopping list display refreshed via global function');
+            // Use the new reload function that loads from database first
+            if (typeof (window as any).reloadShoppingListFromDatabase === 'function') {
+                await (window as any).reloadShoppingListFromDatabase();
+                console.log('✅ Food-tracker shopping list reloaded successfully');
+            } else {
+                console.warn('⚠️ Food-tracker shopping list reload function not available, using fallback');
+                // Fallback to just updating display
+                if (typeof (window as any).updateShoppingListDisplay === 'function') {
+                    (window as any).updateShoppingListDisplay();
+                }
+                showMealMessage('Ingredients added! Switch to Shopping List tab to see updates.', 'info');
             }
         } catch (error) {
-            console.warn('⚠️ Global function refresh failed:', error);
-        }
-        
-        if (!refreshSuccess) {
-            try {
-                // Method 2: Try direct import
-                const { loadAndDisplayShoppingList } = await import('./shopping-list');
-                await loadAndDisplayShoppingList();
-                refreshSuccess = true;
-                console.log('✅ Shopping list display refreshed via import');
-            } catch (error) {
-                console.warn('⚠️ Import refresh failed:', error);
-            }
-        }
-        
-        // Method 3: Dispatch custom event for shopping list refresh
-        try {
-            const refreshEvent = new CustomEvent('shoppingListNeedsRefresh', {
-                detail: { source: 'meal-plan', timestamp: Date.now() }
-            });
-            window.dispatchEvent(refreshEvent);
-            console.log('📡 Shopping list refresh event dispatched');
-        } catch (error) {
-            console.warn('⚠️ Event dispatch failed:', error);
-        }
-        
-        // Method 4: Visual indicator for manual refresh if all else fails
-        if (!refreshSuccess) {
-            console.warn('⚠️ All automatic refresh methods failed');
-            showMealMessage('Ingredients added! Please switch to the Shopping List tab to see updates.', 'info');
-        } else {
-            console.log('👁️ Shopping list refresh completed successfully');
+            console.warn('⚠️ Food-tracker shopping list reload failed:', error);
+            showMealMessage('Ingredients added! Switch to Shopping List tab to see updates.', 'info');
         }
         
     } catch (error) {
@@ -1389,28 +1384,38 @@ async function addMealIngredientsToShoppingList(meal: any): Promise<{matched: an
     const unmatched: any[] = [];
     
     for (const ingredient of meal.ingredients) {
-        const ingredientName = ingredient.name.trim().toLowerCase();
+        const ingredientName = ingredient.name.trim();
         
-        // Try to find a matching food in the Food Tracker
-        const matchedFood = findMatchingFood(ingredientName, allFoods);
+        // Parse quantity from ingredient name (e.g., "2 Eggs" -> quantity: 2, cleanName: "Eggs")
+        const {quantity, cleanName} = parseIngredientQuantity(ingredientName);
+        
+        console.log(`🔢 PARSED: "${ingredientName}" → quantity: ${quantity}, cleanName: "${cleanName}"`);
+        
+        // Try to find a matching food in the Food Tracker using the cleaned name
+        const matchedFood = findMatchingFood(cleanName, allFoods);
+        
+        console.log(`🔍 MATCHING: Searching for "${cleanName}" in ${allFoods.length} foods`);
+        console.log(`🔍 MATCHING: Found match: ${matchedFood ? `"${matchedFood.name}" (ID: ${matchedFood.id})` : 'None'}`);
         
         if (matchedFood) {
-            // Add to shopping list using existing food data
+            // Add to shopping list using existing food data with parsed quantity
             try {
-                await addFoodToShoppingList(matchedFood.id);
-                matched.push({ ingredient, matchedFood });
-                console.log(`✅ Matched "${ingredient.name}" with "${matchedFood.name}"`);
+                console.log(`🔄 CALLING addFoodToShoppingList("${matchedFood.id}", ${quantity})`);
+                await addFoodToShoppingList(matchedFood.id, quantity);
+                matched.push({ ingredient, matchedFood, quantity });
+                console.log(`✅ Matched "${ingredient.name}" with "${matchedFood.name}" (quantity: ${quantity})`);
             } catch (error) {
-                console.error(`Error adding ${matchedFood.name} to shopping list:`, error);
+                console.error(`❌ Error adding ${matchedFood.name} to shopping list:`, error);
             }
         } else {
-            // Add to SUNDRIES section
+            // Add to SUNDRIES section with parsed quantity
             try {
-                await addIngredientToSundries(ingredient);
-                unmatched.push(ingredient);
-                console.log(`📝 Added "${ingredient.name}" to SUNDRIES`);
+                console.log(`🔄 CALLING addIngredientToSundries("${ingredient.name}", ${quantity})`);
+                await addIngredientToSundries(ingredient, quantity);
+                unmatched.push({...ingredient, quantity});
+                console.log(`📝 Added "${ingredient.name}" to SUNDRIES (quantity: ${quantity})`);
             } catch (error) {
-                console.error(`Error adding ${ingredient.name} to SUNDRIES:`, error);
+                console.error(`❌ Error adding ${ingredient.name} to SUNDRIES:`, error);
             }
         }
     }
@@ -1420,26 +1425,93 @@ async function addMealIngredientsToShoppingList(meal: any): Promise<{matched: an
 
 async function loadFoodsForMatching(): Promise<any[]> {
     try {
+        // Removed excessive logging for performance
         // Import the loadFoodsFromDatabase function
         const { loadFoodsFromDatabase } = await import('./database');
-        return await loadFoodsFromDatabase();
+        const foods = await loadFoodsFromDatabase();
+        return foods;
     } catch (error) {
-        console.error('Error loading foods for matching:', error);
+        console.error('❌ LOADING: Error loading foods for matching:', error);
         return [];
     }
 }
 
-function findMatchingFood(ingredientName: string, foods: any[]): any | null {
-    if (!foods || foods.length === 0) return null;
+// Extract quantity and clean name from ingredient text like "2 Eggs" -> {quantity: 2, cleanName: "Eggs"}
+function parseIngredientQuantity(ingredientName: string): {quantity: number, cleanName: string} {
+    const trimmed = ingredientName.trim();
     
+    // Look for patterns like "2 eggs", "1.5 cups flour", "3/4 cup milk", etc.
+    const quantityPatterns = [
+        /^(\d+(?:\.\d+)?)\s+(.+)$/,           // "2 eggs", "1.5 cups"
+        /^(\d+\/\d+)\s+(.+)$/,                // "3/4 cup"
+        /^(\d+\s+\d+\/\d+)\s+(.+)$/,          // "1 3/4 cups"
+        /^(\w+)\s+(.+)$/                      // "one egg", "two eggs" (word numbers)
+    ];
+    
+    for (const pattern of quantityPatterns) {
+        const match = trimmed.match(pattern);
+        if (match) {
+            const quantityStr = match[1].toLowerCase();
+            let quantity = 1;
+            
+            // Handle numeric quantities
+            if (/^\d+(?:\.\d+)?$/.test(quantityStr)) {
+                quantity = parseFloat(quantityStr);
+            }
+            // Handle fractions like "3/4"
+            else if (/^\d+\/\d+$/.test(quantityStr)) {
+                const [num, den] = quantityStr.split('/').map(Number);
+                quantity = num / den;
+            }
+            // Handle mixed numbers like "1 3/4"
+            else if (/^\d+\s+\d+\/\d+$/.test(quantityStr)) {
+                const [whole, fraction] = quantityStr.split(' ');
+                const [num, den] = fraction.split('/').map(Number);
+                quantity = parseInt(whole) + (num / den);
+            }
+            // Handle word numbers
+            else {
+                const wordNumbers: {[key: string]: number} = {
+                    'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5,
+                    'six': 6, 'seven': 7, 'eight': 8, 'nine': 9, 'ten': 10,
+                    'a': 1, 'an': 1, 'half': 0.5, 'quarter': 0.25
+                };
+                quantity = wordNumbers[quantityStr] || 1;
+            }
+            
+            const finalQuantity = Math.max(1, Math.round(quantity));
+            const finalName = match[2].trim();
+            return {
+                quantity: finalQuantity,
+                cleanName: finalName
+            };
+        }
+    }
+    
+    // No quantity found, return original name with quantity 1
+    return {quantity: 1, cleanName: trimmed};
+}
+
+function findMatchingFood(ingredientName: string, foods: any[]): any | null {
+    if (!foods || foods.length === 0) {
+        console.log(`🔍 SEARCH: No foods available for matching`);
+        return null;
+    }
+    
+    // Use the ingredient name as-is (it should already be cleaned)
     const searchName = ingredientName.toLowerCase().trim();
+    console.log(`🔍 SEARCH: Looking for "${searchName}" in foods database`);
     
     // Try exact match first
     let match = foods.find(food => 
         food.name.toLowerCase().trim() === searchName
     );
     
-    if (match) return match;
+    if (match) {
+        console.log(`🎯 SEARCH: Exact match found: "${match.name}"`);
+        return match;
+    }
+    console.log(`🔍 SEARCH: No exact match found, trying partial matches...`);
     
     // Try partial matches - ingredient contains food name or vice versa
     match = foods.find(food => {
@@ -1447,7 +1519,11 @@ function findMatchingFood(ingredientName: string, foods: any[]): any | null {
         return searchName.includes(foodName) || foodName.includes(searchName);
     });
     
-    if (match) return match;
+    if (match) {
+        console.log(`🎯 SEARCH: Partial match found: "${match.name}"`);
+        return match;
+    }
+    console.log(`🔍 SEARCH: No partial match found, trying word-based matching...`);
     
     // Try word-based matching (split by spaces and check for common words)
     const ingredientWords = searchName.split(/\s+/);
@@ -1460,21 +1536,27 @@ function findMatchingFood(ingredientName: string, foods: any[]): any | null {
         );
     });
     
-    return match || null;
+    if (match) {
+        console.log(`🎯 SEARCH: Word-based match found: "${match.name}"`);
+        return match;
+    }
+    
+    console.log(`❌ SEARCH: No match found for "${searchName}"`);
+    return null;
 }
 
-async function addFoodToShoppingList(foodId: string): Promise<void> {
+async function addFoodToShoppingList(foodId: string, quantity: number = 1): Promise<void> {
     try {
         // Import the addToShoppingList function from database
         const { addToShoppingList } = await import('./database');
-        await addToShoppingList(foodId, 1);
+        await addToShoppingList(foodId, quantity);
     } catch (error) {
         console.error('Error adding food to shopping list:', error);
         throw error;
     }
 }
 
-async function addIngredientToSundries(ingredient: any): Promise<void> {
+async function addIngredientToSundries(ingredient: any, quantity: number = 1): Promise<void> {
     try {
         // Get current user
         const { supabase } = await import('./supabase-client');
@@ -1500,7 +1582,7 @@ async function addIngredientToSundries(ingredient: any): Promise<void> {
                 carbs: ingredient.carbs || 0,
                 fat: ingredient.fat || 0,
                 protein: ingredient.protein || 0,
-                quantity: 1,
+                quantity: quantity,
                 user_id: user.id
             }]);
         
@@ -1514,12 +1596,14 @@ async function addIngredientToSundries(ingredient: any): Promise<void> {
 
 // Global function for HTML onclick handler
 (window as any).handleMealToShoppingList = async function(mealId: string, mealName: string, isChecked: boolean) {
-    console.log('🚀 Global handleMealToShoppingList wrapper called!');
-    console.log(`Parameters: mealId="${mealId}", mealName="${mealName}", isChecked=${isChecked}`);
+    console.log('🚀🚀🚀 CHECKBOX CLICKED! Global handleMealToShoppingList wrapper called!');
+    console.log(`📋 Parameters: mealId="${mealId}", mealName="${mealName}", isChecked=${isChecked}`);
+    console.log(`📊 Current meals available: ${currentMeals.length}`);
     try {
         await handleMealToShoppingList(mealId, mealName, isChecked);
+        console.log('✅ handleMealToShoppingList completed successfully');
     } catch (error) {
-        console.error('Error in handleMealToShoppingList:', error);
+        console.error('❌ Error in handleMealToShoppingList:', error);
         showMealMessage('Error processing ingredients', 'error');
     }
 };
@@ -1558,9 +1642,133 @@ async function addIngredientToSundries(ingredient: any): Promise<void> {
     clearMealShoppingCheckboxes();
 };
 
+// Debug function to force add meal ingredients (bypass checkbox)
+(window as any).forceAddMealIngredients = async function(mealName) {
+    console.log(`🚀 FORCE ADD: Looking for meal "${mealName}"`);
+    const meal = currentMeals.find(m => m.name.toLowerCase().includes(mealName.toLowerCase()));
+    if (meal) {
+        console.log(`✅ Found meal: ${meal.name} (ID: ${meal.id})`);
+        console.log(`📋 Forcing addition of ${meal.ingredients?.length || 0} ingredients to shopping list...`);
+        try {
+            await handleMealToShoppingList(meal.id, meal.name, true);
+            console.log(`✅ FORCE ADD completed for ${meal.name}`);
+        } catch (error) {
+            console.error(`❌ FORCE ADD failed:`, error);
+        }
+    } else {
+        console.error(`❌ Meal not found. Available meals:`, currentMeals.map(m => m.name));
+        console.log(`💡 Try: forceAddMealIngredients("omelette") or forceAddMealIngredients("thai")`);
+    }
+};
+
+// Add ALL planned meals to shopping list with correct quantities
+(window as any).addAllPlannedMealsToShoppingList = async function() {
+    console.log('🛒🛒🛒 ADDING ALL PLANNED MEALS TO SHOPPING LIST...');
+    
+    if (!weeklyMealPlan || Object.keys(weeklyMealPlan).length === 0) {
+        console.log('❌ No weekly meal plan found');
+        showMealMessage('No meals planned yet', 'info');
+        return;
+    }
+    
+    // Count meal occurrences across the entire week
+    const mealCounts = new Map();
+    
+    Object.keys(weeklyMealPlan).forEach(day => {
+        Object.keys(weeklyMealPlan[day]).forEach(mealType => {
+            weeklyMealPlan[day][mealType].forEach(meal => {
+                const count = mealCounts.get(meal.id) || 0;
+                mealCounts.set(meal.id, count + 1);
+                console.log(`📅 Found "${meal.name}" on ${day} ${mealType} (count: ${count + 1})`);
+            });
+        });
+    });
+    
+    console.log(`📊 Total unique meals planned: ${mealCounts.size}`);
+    
+    let totalAdded = 0;
+    let errors = 0;
+    
+    for (const [mealId, count] of mealCounts) {
+        const meal = currentMeals.find(m => m.id === mealId);
+        if (meal) {
+            console.log(`\n🔄 Processing "${meal.name}" (appears ${count} times in week)`);
+            try {
+                // Add meal ingredients with multiplied quantities
+                const results = await addMealIngredientsToShoppingListWithMultiplier(meal, count);
+                totalAdded += results.matched.length + results.unmatched.length;
+                console.log(`✅ Added ${results.matched.length + results.unmatched.length} ingredients for "${meal.name}" x${count}`);
+            } catch (error) {
+                console.error(`❌ Error adding meal "${meal.name}":`, error);
+                errors++;
+            }
+        } else {
+            console.error(`❌ Meal not found in currentMeals: ${mealId}`);
+            errors++;
+        }
+    }
+    
+    const message = `Added ${totalAdded} ingredients from ${mealCounts.size} unique meals to shopping list!`;
+    if (errors > 0) {
+        showMealMessage(`${message} (${errors} errors)`, 'info');
+    } else {
+        showMealMessage(message, 'success');
+    }
+    
+    // Refresh shopping list display
+    try {
+        if (typeof (window as any).loadAndDisplayShoppingList === 'function') {
+            await (window as any).loadAndDisplayShoppingList();
+        }
+    } catch (error) {
+        console.warn('Failed to refresh shopping list display:', error);
+    }
+    
+    console.log('✅ ALL PLANNED MEALS PROCESSING COMPLETED');
+};
+
+// Helper function to add meal ingredients with a multiplier for multiple occurrences
+async function addMealIngredientsToShoppingListWithMultiplier(meal: any, multiplier: number): Promise<{matched: any[], unmatched: any[]}> {
+    console.log(`🔍 Processing ${meal.ingredients.length} ingredients from "${meal.name}" x${multiplier}`);
+    
+    const allFoods = await loadFoodsForMatching();
+    const matched: any[] = [];
+    const unmatched: any[] = [];
+    
+    for (const ingredient of meal.ingredients) {
+        const ingredientName = ingredient.name.trim();
+        const {quantity, cleanName} = parseIngredientQuantity(ingredientName);
+        const totalQuantity = quantity * multiplier;
+        
+        console.log(`🔢 MULTIPLIED: "${ingredientName}" → base: ${quantity}, multiplier: ${multiplier}, total: ${totalQuantity}`);
+        
+        const matchedFood = findMatchingFood(cleanName, allFoods);
+        
+        if (matchedFood) {
+            try {
+                await addFoodToShoppingList(matchedFood.id, totalQuantity);
+                matched.push({ ingredient, matchedFood, quantity: totalQuantity });
+                console.log(`✅ Added "${ingredient.name}" x${totalQuantity} to shopping list`);
+            } catch (error) {
+                console.error(`❌ Error adding ${matchedFood.name}:`, error);
+            }
+        } else {
+            try {
+                await addIngredientToSundries(ingredient, totalQuantity);
+                unmatched.push({...ingredient, quantity: totalQuantity});
+                console.log(`📝 Added "${ingredient.name}" x${totalQuantity} to SUNDRIES`);
+            } catch (error) {
+                console.error(`❌ Error adding ${ingredient.name} to SUNDRIES:`, error);
+            }
+        }
+    }
+    
+    return { matched, unmatched };
+}
+
 // Global function to refresh meal shopping checkboxes (can be called from other modules)
 (window as any).refreshMealShoppingCheckboxes = async function() {
-    console.log('🔄 Refreshing meal shopping checkboxes from external call...');
+    // Removed excessive logging for performance
     await updateMealShoppingCheckboxes();
 };
 
@@ -1584,3 +1792,315 @@ function displayLastMealUploadDate(): void {
     infoElement.style.display = 'none';
   }
 }
+
+// === COMPREHENSIVE DEBUGGING FUNCTIONS ===
+
+// Test a specific meal checkbox functionality
+(window as any).testMealCheckbox = async function(mealName) {
+    console.log(`🧪 === TESTING MEAL CHECKBOX: ${mealName} ===`);
+    
+    // Find the meal
+    const meal = currentMeals.find(m => m.name.toLowerCase().includes(mealName.toLowerCase()));
+    if (!meal) {
+        console.error(`❌ Meal "${mealName}" not found. Available meals:`, currentMeals.map(m => m.name));
+        return;
+    }
+    
+    console.log(`✅ Found meal: ${meal.name} (ID: ${meal.id})`);
+    console.log(`📋 Ingredients: ${meal.ingredients?.length || 0}`);
+    
+    if (!meal.ingredients || meal.ingredients.length === 0) {
+        console.error('❌ This meal has no ingredients to add to shopping list');
+        return;
+    }
+    
+    // Show ingredients
+    console.log('🥗 Meal ingredients:');
+    meal.ingredients.forEach((ingredient, index) => {
+        console.log(`  ${index + 1}. ${ingredient.name}`);
+    });
+    
+    // Test the function
+    console.log('\n🚀 Testing handleMealToShoppingList...');
+    try {
+        await (window as any).handleMealToShoppingList(meal.id, meal.name, true);
+        console.log('✅ Test completed successfully!');
+        
+        // Check if items were added
+        setTimeout(() => {
+            console.log('\n🔍 Checking shopping list after test...');
+            if (typeof (window as any).debugShoppingList === 'function') {
+                (window as any).debugShoppingList();
+            }
+        }, 1000);
+        
+    } catch (error) {
+        console.error('❌ Test failed:', error);
+    }
+};
+
+// Quick fix for shopping list display issues - use only food-tracker system
+(window as any).forceRefreshShoppingList = async function() {
+    console.log('🔄 === FORCE REFRESHING FOOD-TRACKER SHOPPING LIST ===');
+    
+    try {
+        // Only use food-tracker.ts system (the primary one)
+        if (typeof (window as any).updateShoppingListDisplay === 'function') {
+            console.log('🔄 Refreshing food-tracker shopping list...');
+            (window as any).updateShoppingListDisplay();
+            console.log('✅ Food-tracker shopping list refresh completed');
+        } else {
+            console.warn('⚠️ Food-tracker shopping list function not available');
+        }
+        
+    } catch (error) {
+        console.error('❌ Error during food-tracker refresh:', error);
+    }
+};
+
+// Export function to load meals from database
+export async function loadMealsFromDatabase(): Promise<Meal[]> {
+    try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+            console.error('No user logged in');
+            return [];
+        }
+
+        const { data: meals, error } = await supabase
+            .from('meals')
+            .select('*')
+            .or(`user_id.eq.${user.id},user_id.is.null`)
+            .order('name');
+
+        if (error) {
+            console.error('Error loading meals:', error);
+            return [];
+        }
+
+        // Map database meals to our Meal interface
+        const mappedMeals = (meals || []).map(dbMeal => ({
+            id: dbMeal.id,
+            number: dbMeal.number || '',
+            name: dbMeal.name,
+            meal_type: dbMeal.meal_type || 'OTHER',
+            ingredients: typeof dbMeal.ingredients === 'string'
+                ? JSON.parse(dbMeal.ingredients || '[]')
+                : dbMeal.ingredients || [],
+            totalCarbs: dbMeal.total_carbs || 0,
+            totalFat: dbMeal.total_fat || 0,
+            totalProtein: dbMeal.total_protein || 0,
+            picture: dbMeal.picture || '',
+            startRow: dbMeal.start_row || 0,
+            endRow: dbMeal.end_row || 0,
+            images: [],
+            user_id: dbMeal.user_id,
+            created_by: dbMeal.created_by,
+            cooking_instructions: dbMeal.cooking_instructions
+        }));
+
+        // Update currentMeals which is linked to allMeals
+        currentMeals.length = 0;
+        currentMeals.push(...mappedMeals);
+        
+        // Removed excessive logging for performance
+        return mappedMeals;
+    } catch (error) {
+        console.error('Error loading meals:', error);
+        return [];
+    }
+}
+
+export async function editMeal(mealId: string): Promise<void> {
+    const meal = currentMeals.find(m => m.id === mealId);
+    if (!meal) {
+        console.error('Meal not found:', mealId);
+        return;
+    }
+
+    // Get form elements
+    const editForm = document.getElementById('editMealForm') as HTMLFormElement;
+    const editMealId = document.getElementById('editMealId') as HTMLInputElement;
+    const editMealName = document.getElementById('editMealName') as HTMLInputElement;
+    const editMealType = document.getElementById('editMealType') as HTMLSelectElement;
+    const editMealInstructions = document.getElementById('editMealInstructions') as HTMLTextAreaElement;
+    const editMealIngredients = document.getElementById('editMealIngredients') as HTMLDivElement;
+
+    if (!editForm || !editMealId || !editMealName || !editMealType || !editMealInstructions || !editMealIngredients) {
+        console.error('Edit form elements not found');
+        return;
+    }
+
+    // Populate form
+    editMealId.value = meal.id || '';
+    editMealName.value = meal.name;
+    editMealType.value = meal.meal_type;
+    editMealInstructions.value = meal.cooking_instructions || '';
+
+    // Clear existing ingredients
+    editMealIngredients.innerHTML = '';
+
+    // Add ingredient rows
+    meal.ingredients.forEach((ingredient, index) => {
+        const row = document.createElement('div');
+        row.className = 'ingredient-row';
+        row.innerHTML = `
+            <select class="ingredient-select" name="ingredient_${index}">
+                <option value="${ingredient.food_id}">${ingredient.food_name}</option>
+            </select>
+            <input type="number" class="ingredient-quantity" name="quantity_${index}" 
+                   value="${ingredient.quantity || 1}" min="0.1" step="0.1">
+            <button type="button" class="remove-ingredient" onclick="removeIngredientRow(this)">Remove</button>
+        `;
+        editMealIngredients.appendChild(row);
+    });
+
+    // Show edit form modal
+    const editModal = document.getElementById('editMealModal');
+    if (editModal) {
+        editModal.style.display = 'block';
+    }
+
+    // Load available foods for ingredient selection
+    await loadFoodsForIngredients();
+}
+
+async function loadFoodsForIngredients(): Promise<void> {
+    try {
+        const { data: foods, error } = await supabase
+            .from('foods')
+            .select('id, name')
+            .order('name');
+
+        if (error) throw error;
+
+        // Update all ingredient selects with food options
+        const selects = document.querySelectorAll('.ingredient-select');
+        selects.forEach(select => {
+            const currentValue = (select as HTMLSelectElement).value;
+            
+            // Keep the current selection and add all other foods
+            let options = `<option value="${currentValue}">${
+                foods.find(f => f.id === currentValue)?.name || 'Select food'
+            }</option>`;
+            
+            foods.forEach(food => {
+                if (food.id !== currentValue) {
+                    options += `<option value="${food.id}">${food.name}</option>`;
+                }
+            });
+            
+            select.innerHTML = options;
+        });
+    } catch (error) {
+        console.error('Error loading foods for ingredients:', error);
+        showMealMessage('Error loading foods for ingredients', 'error');
+    }
+}
+
+// Cancel meal edit
+export function cancelMealEdit(): void {
+    const modal = document.getElementById('editMealModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
+// Delete meal
+export async function deleteMealFromEdit(): Promise<void> {
+    const editMealId = document.getElementById('editMealId') as HTMLInputElement;
+    if (!editMealId || !editMealId.value) {
+        showMealMessage('No meal selected for deletion', 'error');
+        return;
+    }
+
+    const confirmed = confirm('Are you sure you want to delete this meal?');
+    if (!confirmed) return;
+
+    try {
+        const { error } = await supabase
+            .from('meals')
+            .delete()
+            .eq('id', editMealId.value);
+
+        if (error) throw error;
+
+        showMealMessage('Meal deleted successfully', 'success');
+        cancelMealEdit();
+        await loadUserMeals();
+    } catch (error) {
+        console.error('Error deleting meal:', error);
+        showMealMessage('Error deleting meal', 'error');
+    }
+}
+
+// Setup form submission handler
+document.addEventListener('DOMContentLoaded', () => {
+    const editMealForm = document.getElementById('editMealForm') as HTMLFormElement;
+    if (editMealForm) {
+        editMealForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+
+            const mealId = (document.getElementById('editMealId') as HTMLInputElement).value;
+            const name = (document.getElementById('editMealName') as HTMLInputElement).value;
+            const mealType = (document.getElementById('editMealType') as HTMLSelectElement).value;
+            const instructions = (document.getElementById('editMealInstructions') as HTMLTextAreaElement).value;
+
+            // Get ingredients
+            const ingredients: MealIngredient[] = [];
+            const ingredientRows = document.querySelectorAll('#editMealIngredients .ingredient-row');
+            ingredientRows.forEach((row, index) => {
+                const select = row.querySelector('.ingredient-select') as HTMLSelectElement;
+                const quantity = row.querySelector('.ingredient-quantity') as HTMLInputElement;
+                if (select && quantity) {
+                    const food = allFoods.find(f => f.id === select.value);
+                    if (food) {
+                        ingredients.push({
+                            name: food.name,
+                            food_name: food.name,
+                            food_id: food.id,
+                            carbs: food.carbs * parseFloat(quantity.value),
+                            fat: food.fat * parseFloat(quantity.value),
+                            protein: food.protein * parseFloat(quantity.value),
+                            quantity: parseFloat(quantity.value),
+                            instructions: food.instructions || '',
+                            row: index
+                        });
+                    }
+                }
+            });
+
+            try {
+                // Calculate totals
+                const totalCarbs = ingredients.reduce((sum, ing) => sum + (ing.carbs || 0), 0);
+                const totalFat = ingredients.reduce((sum, ing) => sum + (ing.fat || 0), 0);
+                const totalProtein = ingredients.reduce((sum, ing) => sum + (ing.protein || 0), 0);
+
+                const updatedMeal = {
+                    id: mealId,
+                    name,
+                    meal_type: mealType,
+                    cooking_instructions: instructions,
+                    ingredients,
+                    totalCarbs,
+                    totalFat,
+                    totalProtein
+                };
+
+                const { error } = await supabase
+                    .from('meals')
+                    .update(updatedMeal)
+                    .eq('id', mealId);
+
+                if (error) throw error;
+
+                showMealMessage('Meal updated successfully', 'success');
+                cancelMealEdit();
+                await loadUserMeals();
+            } catch (error) {
+                console.error('Error updating meal:', error);
+                showMealMessage('Error updating meal', 'error');
+            }
+        });
+    }
+});

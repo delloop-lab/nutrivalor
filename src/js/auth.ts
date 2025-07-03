@@ -6,7 +6,7 @@ let currentUser: User | null = null;
 
 // Initialize authentication
 export async function initializeAuth(): Promise<void> {
-  console.log('🔐 Initializing authentication...');
+  // Removed excessive logging for performance
   await checkAuthState();
   setupEventListeners();
 }
@@ -21,28 +21,28 @@ function setupEventListeners(): void {
 
   if (loginForm) {
     loginForm.addEventListener('submit', handleLogin);
-    console.log('✅ Login form event listener attached');
+    // Removed excessive logging for performance
   } else {
     console.warn('❌ Login form not found');
   }
   
   if (signupForm) {
     signupForm.addEventListener('submit', handleSignup);
-    console.log('✅ Signup form event listener attached');
+    // Removed excessive logging for performance
   } else {
     console.warn('❌ Signup form not found');
   }
   
   if (forgotForm) {
     forgotForm.addEventListener('submit', handleForgotPassword);
-    console.log('✅ Forgot password form event listener attached');
+    // Removed excessive logging for performance
   } else {
     console.warn('❌ Forgot password form not found');
   }
   
   if (logoutBtn) {
     logoutBtn.addEventListener('click', handleLogout);
-    console.log('✅ Logout button event listener attached');
+    // Removed excessive logging for performance
   } else {
     console.warn('❌ Logout button not found');
   }
@@ -74,7 +74,7 @@ export async function checkAuthState(): Promise<void> {
     const user = await getCurrentUser();
     
     if (user) {
-      handleAuthSuccess(user);
+      await handleAuthSuccess(user);
     } else {
       showAuthSection();
     }
@@ -96,12 +96,26 @@ export function getCurrentAuthUser(): User | null {
 }
 
 // Handle successful authentication
-function handleAuthSuccess(user: User): void {
+async function handleAuthSuccess(user: User): Promise<void> {
   currentUser = user;
   hideLoading();
   showMainApp();
-  updateUserInfo(user);
+  await updateUserInfo(user);
   loadUserData();
+  
+  // Auto-load profile data to populate the Settings form
+  try {
+    const mainModule = await import('../main');
+    if ('loadProfile' in mainModule && typeof mainModule.loadProfile === 'function') {
+      await mainModule.loadProfile();
+      console.log('✅ Profile auto-loaded after login');
+    }
+  } catch (error) {
+    console.log('ℹ️ Profile auto-load skipped (not available or error):', error);
+  }
+  
+  // Update admin navigation based on user role
+  updateAdminNavigation();
 }
 
 // Show/hide different sections
@@ -139,28 +153,45 @@ function showMainApp(): void {
 }
 
 // Update user info in header
-function updateUserInfo(user: User): void {
+async function updateUserInfo(user: User): Promise<void> {
   const userEmailElement = document.getElementById('userEmail');
   const headerAvatar = document.getElementById('headerAvatar') as HTMLImageElement;
   const headerAvatarPlaceholder = document.getElementById('headerAvatarPlaceholder');
   
   if (userEmailElement) {
-    // Try to get name from saved profile first, then fallback to email
-    const savedProfile = localStorage.getItem('nutrivalor_profile');
     let displayName = user.email || 'User';
     let avatarSrc = null;
     
-    if (savedProfile) {
-      try {
-        const profileData = JSON.parse(savedProfile);
+    // Try to load profile from Supabase database
+    try {
+      const { loadProfileFromDatabase } = await import('./database');
+      const profileData = await loadProfileFromDatabase();
+      
+      if (profileData) {
         if (profileData.name && profileData.name.trim()) {
           displayName = profileData.name;
         }
-        if (profileData.avatar) {
-          avatarSrc = profileData.avatar;
+        if (profileData.avatar_url) {
+          avatarSrc = profileData.avatar_url;
         }
-      } catch (error) {
-        console.log('Could not parse saved profile for display name');
+      }
+    } catch (error) {
+      console.log('Could not load profile from database for header display:', error);
+      
+      // Fallback to localStorage
+      const savedProfile = localStorage.getItem('nutrivalor_profile');
+      if (savedProfile) {
+        try {
+          const profileData = JSON.parse(savedProfile);
+          if (profileData.name && profileData.name.trim()) {
+            displayName = profileData.name;
+          }
+          if (profileData.avatar) {
+            avatarSrc = profileData.avatar;
+          }
+        } catch (error) {
+          console.log('Could not parse saved profile for display name');
+        }
       }
     }
     
@@ -274,7 +305,7 @@ async function handleLogin(event: Event): Promise<void> {
       const userWithoutPassword = { ...user };
       delete userWithoutPassword.password;
       localStorageWrapper.setItem('currentUser', JSON.stringify(userWithoutPassword));
-      handleAuthSuccess(userWithoutPassword);
+      await handleAuthSuccess(userWithoutPassword);
       return;
     }
     
@@ -290,7 +321,7 @@ async function handleLogin(event: Event): Promise<void> {
     }
     
     if (data.user) {
-      handleAuthSuccess(data.user);
+      await handleAuthSuccess(data.user);
       showMessage('Login successful!', 'success');
     }
     
@@ -347,7 +378,7 @@ async function handleSignup(event: Event): Promise<void> {
       users.push({ ...user, password });
       localStorageWrapper.setItem('users', JSON.stringify(users));
       localStorageWrapper.setItem('currentUser', JSON.stringify(user));
-      handleAuthSuccess(user as User);
+      await handleAuthSuccess(user as User);
       showMessage('Account created successfully!', 'success');
       return;
     }
@@ -367,7 +398,7 @@ async function handleSignup(event: Event): Promise<void> {
     }
     
     if (data.user) {
-      handleAuthSuccess(data.user);
+      await handleAuthSuccess(data.user);
       showMessage('Account created successfully!', 'success');
     }
     
@@ -420,11 +451,68 @@ export async function handleLogout(): Promise<void> {
       await supabase.auth.signOut();
     }
     
-    // Clear localStorage
+    // Clear localStorage - all user data
     localStorageWrapper.removeItem('currentUser');
+    localStorageWrapper.removeItem('nutrivalor_profile'); // Clear cached profile data
+    localStorageWrapper.removeItem('nutrivalor_meals'); // Clear cached meal data
+    localStorageWrapper.removeItem('nutrivalor_weeklyPlan'); // Clear meal plan data
+    
+    // Clear profile form fields for next user
+    clearProfileForm();
+    
+    // Clear any macro calculator saved data for this user
+    if (currentUser?.id) {
+      localStorageWrapper.removeItem(`macroProfile_${currentUser.id}`);
+    }
+    
+    // Clear in-memory data structures to ensure privacy
+    try {
+      // Clear food tracker data (foods + shopping list)
+      const foodTrackerModule = await import('./food-tracker');
+      if ('clearAllData' in foodTrackerModule) {
+        await (foodTrackerModule as any).clearAllData();
+      }
+      
+      // Clear food grid display
+      const foodGrid = document.getElementById('foodGrid');
+      if (foodGrid) {
+        foodGrid.innerHTML = '<p class="empty-state">Please log in to view your food data.</p>';
+      }
+      
+      // Clear shopping list display  
+      const shoppingListContainer = document.getElementById('shoppingListContainer');
+      if (shoppingListContainer) {
+        shoppingListContainer.innerHTML = '<p class="empty-state">Please log in to view your shopping list.</p>';
+      }
+      
+      // Clear meal data and meal plan display
+      const mealsModule = await import('./meals');
+      if ('clearAllMealData' in mealsModule) {
+        await (mealsModule as any).clearAllMealData();
+      }
+      
+      // Clear meal grid display
+      const mealGrid = document.getElementById('mealGrid');
+      if (mealGrid) {
+        mealGrid.innerHTML = '<p class="empty-state">Please log in to view your meals.</p>';
+      }
+      
+      // Clear weekly meal plan display
+      const weeklyPlanContainer = document.querySelector('.weekly-meal-plan-container');
+      if (weeklyPlanContainer) {
+        weeklyPlanContainer.innerHTML = '<p class="empty-state">Please log in to view your meal plan.</p>';
+      }
+      
+      console.log('🧹 All user data cleared from memory and display');
+      
+    } catch (error) {
+      console.warn('⚠️ Some data clearing operations failed (this is okay):', error);
+    }
     
     currentUser = null;
     showAuthSection();
+    
+    console.log('🔐 User logged out - all data cleared for next user');
     
   } catch (error) {
     console.error('Logout error:', error);
@@ -432,16 +520,91 @@ export async function handleLogout(): Promise<void> {
   }
 }
 
+// Clear all profile form fields
+function clearProfileForm(): void {
+  try {
+    // Profile form fields
+    const profileFields = [
+      'profileName',
+      'dateOfBirth', 
+      'profileAge',
+      'profileGender',
+      'profileHeight',
+      'heightUnit',
+      'profileIdealWeight',
+      'weightUnit',
+      'profileCountry'
+    ];
+    
+    profileFields.forEach(fieldId => {
+      const field = document.getElementById(fieldId) as HTMLInputElement | HTMLSelectElement;
+      if (field) {
+        if (field instanceof HTMLSelectElement) {
+          field.selectedIndex = 0; // Reset to first option
+        } else {
+          field.value = ''; // Clear input fields
+        }
+      }
+    });
+    
+    // Clear avatar display
+    const avatarPreview = document.getElementById('avatarPreview') as HTMLImageElement;
+    const avatarPlaceholder = document.getElementById('avatarPlaceholder') as HTMLElement;
+    const removeAvatarBtn = document.getElementById('removeAvatarBtn') as HTMLButtonElement;
+    
+    if (avatarPreview) {
+      avatarPreview.src = '';
+      avatarPreview.style.display = 'none';
+    }
+    
+    if (avatarPlaceholder) {
+      avatarPlaceholder.style.display = 'flex';
+    }
+    
+    if (removeAvatarBtn) {
+      removeAvatarBtn.style.display = 'none';
+    }
+    
+    // Reset header display
+    const userEmailElement = document.getElementById('userEmail');
+    const headerAvatar = document.getElementById('headerAvatar') as HTMLImageElement;
+    const headerAvatarPlaceholder = document.getElementById('headerAvatarPlaceholder');
+    
+    if (userEmailElement) {
+      userEmailElement.textContent = 'User';
+    }
+    
+    if (headerAvatar) {
+      headerAvatar.style.display = 'none';
+    }
+    
+    if (headerAvatarPlaceholder) {
+      headerAvatarPlaceholder.style.display = 'flex';
+    }
+    
+    console.log('🧹 Profile form cleared for next user');
+    
+  } catch (error) {
+    console.error('Error clearing profile form:', error);
+  }
+}
+
 // Load user-specific data
 async function loadUserData(): Promise<void> {
   try {
-    console.log('Loading user data...');
+    // Removed excessive logging for performance
     
-    // Import and call the food tracker's load function
-    const { loadAndDisplayFoods } = await import('./food-tracker');
-    await loadAndDisplayFoods();
+    // Import and initialize food tracker (includes foods + shopping list)
+    const { initializeFoodTracker } = await import('./food-tracker');
+    await initializeFoodTracker();
+          // Removed excessive logging for performance
     
-    console.log('✅ User data loaded successfully');
+    // Import and initialize meals (includes meal data + meal plan)
+    const { initializeMeals } = await import('./meals');
+    await initializeMeals();
+          // Removed excessive logging for performance
+    
+          // Removed excessive logging for performance
   } catch (error) {
     console.error('❌ Error loading user data:', error);
   }
@@ -450,4 +613,167 @@ async function loadUserData(): Promise<void> {
 // Generate unique ID
 function generateId(): string {
   return 'id_' + Math.random().toString(36).substr(2, 9) + Date.now().toString(36);
-} 
+}
+
+// =====================================================
+// ADMIN ROLE CHECKING FUNCTIONS
+// =====================================================
+
+// Check if current user is admin or super admin
+export async function isCurrentUserAdmin(): Promise<boolean> {
+      // Removed excessive logging for performance
+  
+  try {
+    const user = await getCurrentUser();
+    // Removed excessive logging for performance
+    
+    if (!user) {
+      console.log('🔐 No user found, returning false');
+      return false;
+    }
+    
+    // Removed excessive logging for performance
+    
+    const { data, error } = await supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', user.id)
+      .single();
+    
+    if (error && error.code !== 'PGRST116') { // PGRST116 = no rows returned
+      console.error('❌ Error checking admin status:', error);
+      return false;
+    }
+    
+    if (error && error.code === 'PGRST116') {
+      console.log('🔐 No role record found for user, defaulting to user role');
+    }
+    
+    const role = data?.role || 'user';
+    // Removed excessive logging for performance
+    
+    const isAdmin = role === 'admin' || role === 'super_admin';
+    // Removed excessive logging for performance
+    
+    return isAdmin;
+  } catch (error) {
+    console.error('❌ Error checking admin status:', error);
+    return false;
+  }
+}
+
+// Check if current user is super admin
+export async function isCurrentUserSuperAdmin(): Promise<boolean> {
+  try {
+    const user = await getCurrentUser();
+    if (!user) return false;
+    
+    const { data, error } = await supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', user.id)
+      .single();
+    
+    if (error && error.code !== 'PGRST116') {
+      console.error('Error checking super admin status:', error);
+      return false;
+    }
+    
+    const role = data?.role || 'user';
+    console.log('🔐 User role:', role);
+    return role === 'super_admin';
+  } catch (error) {
+    console.error('Error checking super admin status:', error);
+    return false;
+  }
+}
+
+// Get current user's role
+export async function getCurrentUserRole(): Promise<string> {
+  try {
+    const user = await getCurrentUser();
+    if (!user) return 'guest';
+    
+    const { data, error } = await supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', user.id)
+      .single();
+    
+    if (error && error.code !== 'PGRST116') {
+      console.error('Error getting user role:', error);
+      return 'user';
+    }
+    
+    return data?.role || 'user';
+  } catch (error) {
+    console.error('Error getting user role:', error);
+    return 'user';
+  }
+}
+
+// Show/hide admin navigation based on user role
+export async function updateAdminNavigation(): Promise<void> {
+      // Removed excessive logging for performance
+  
+  const adminTab = document.getElementById('adminTab');
+  if (!adminTab) {
+    console.error('❌ Admin tab element not found in DOM');
+    return;
+  }
+  
+      // Removed excessive logging for performance
+  
+  try {
+    const isAdmin = await isCurrentUserAdmin();
+    // Removed excessive logging for performance
+    
+    adminTab.style.display = isAdmin ? 'block' : 'none';
+    
+    // Removed excessive logging for performance
+    // Removed excessive logging for performance
+  } catch (error) {
+    console.error('❌ Error in updateAdminNavigation:', error);
+    // Hide admin tab on error
+    adminTab.style.display = 'none';
+  }
+}
+
+// Debug function - can be called from browser console
+export async function debugAdminStatus(): Promise<void> {
+  console.log('🐛 === ADMIN DEBUG START ===');
+  
+  const user = await getCurrentUser();
+  console.log('🐛 Current user:', user);
+  
+  if (!user) {
+    console.log('🐛 No user logged in');
+    return;
+  }
+  
+  try {
+    const role = await getCurrentUserRole();
+    console.log('🐛 User role:', role);
+    
+    const isAdmin = await isCurrentUserAdmin();
+    console.log('🐛 Is admin:', isAdmin);
+    
+    const isSuperAdmin = await isCurrentUserSuperAdmin();
+    console.log('🐛 Is super admin:', isSuperAdmin);
+    
+    const adminTab = document.getElementById('adminTab');
+    console.log('🐛 Admin tab element:', adminTab);
+    console.log('🐛 Admin tab display:', adminTab?.style.display);
+    
+    // Force update admin navigation
+    await updateAdminNavigation();
+    
+  } catch (error) {
+    console.error('🐛 Debug error:', error);
+  }
+  
+  console.log('🐛 === ADMIN DEBUG END ===');
+}
+
+// Make debug function available globally
+(window as any).debugAdminStatus = debugAdminStatus; 

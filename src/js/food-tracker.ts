@@ -14,7 +14,7 @@ import { getCurrentAuthUser } from './auth';
 
 // Food Tracker Module
 export async function initializeFoodTracker(): Promise<void> {
-  console.log('🍎 Initializing food tracker...');
+  // Removed excessive logging for performance
   setupFoodTrackerEventListeners();
   await loadAndDisplayFoods();
   await loadShoppingListData();
@@ -26,7 +26,7 @@ function setupFoodTrackerEventListeners(): void {
   const foodFileInput = document.getElementById('foodFileInput') as HTMLInputElement;
   if (foodFileInput) {
     foodFileInput.addEventListener('change', handleFoodFileUpload);
-    console.log('✅ Food file input listener attached');
+    // Removed excessive logging for performance
   } else {
     console.warn('❌ Food file input not found');
   }
@@ -38,25 +38,25 @@ function setupFoodTrackerEventListeners(): void {
 
 function setupCategoryFilters(): void {
   // Category filtering will be set up after foods are loaded
-  console.log('Category filters will be initialized after loading foods...');
+  // Removed excessive logging for performance
 }
 
 function setupSearchFunctionality(): void {
   // Implementation for search functionality will be added
-  console.log('Setting up search functionality...');
+  // Removed excessive logging for performance
 }
 
 // Store all foods for filtering and shopping list
-let allFoods: any[] = [];
+export let allFoods: any[] = [];
 let shoppingList: any[] = [];
 
 // Load shopping list data from database
 async function loadShoppingListData(): Promise<void> {
   try {
-    console.log('🛒 Loading shopping list from database...');
+    // Removed excessive logging for performance
     const dbShoppingList = await loadShoppingListFromDatabase();
     shoppingList = dbShoppingList || [];
-    console.log(`🛒 Loaded ${shoppingList.length} items in shopping list`);
+    // Removed excessive logging for performance
     updateShoppingListDisplay();
   } catch (error) {
     console.error('❌ Error loading shopping list:', error);
@@ -66,9 +66,8 @@ async function loadShoppingListData(): Promise<void> {
 
 export async function loadAndDisplayFoods(): Promise<void> {
   try {
-    console.log('📊 Loading foods from database...');
-    const foods = await loadFoodsFromDatabase();
-    console.log(`📊 Loaded ${foods.length} foods from database`);
+          // Removed excessive logging for performance
+      const foods = await loadFoodsFromDatabase();
     
     // Store all foods for filtering
     allFoods = foods;
@@ -108,7 +107,7 @@ function updateCategoryFilters(foods: any[]): void {
     `;
   }).join('');
   
-  console.log(`✅ Created filters for categories: ${categories.join(', ')}`);
+      // Removed excessive logging for performance
 }
 
 export function filterByCategory(category: string): void {
@@ -143,7 +142,7 @@ export function displayFoods(foods: any[]): void {
     return;
   }
 
-  console.log(`🍽️ Displaying ${foods.length} foods`);
+      // Removed excessive logging for performance
 
   if (foods.length === 0) {
     foodGrid.innerHTML = '<p class="empty-state">No foods found. Upload your food data to get started!</p>';
@@ -172,6 +171,10 @@ export function displayFoods(foods: any[]): void {
           <span>Fat: ${formatNutrition(food.fat)}g</span>
           <span>Protein: ${formatNutrition(food.protein)}g</span>
         </div>
+        ${food.instructions ? `<div class="food-instructions">${food.instructions}</div>` : ''}
+        <div class="food-attribution">
+          Created by: ${food.created_by}
+        </div>
         <div class="food-actions">
           <input type="number" class="quantity-input" value="1" min="1" id="qty-${food.id}">
           <button class="${buttonClass}" onclick="${buttonAction}">
@@ -182,7 +185,7 @@ export function displayFoods(foods: any[]): void {
     `;
   }).join('');
   
-  console.log('✅ Food cards displayed successfully');
+      // Removed excessive logging for performance
 }
 
 function formatNutrition(value: any): string {
@@ -248,31 +251,150 @@ export async function handleFoodFileUpload(event: Event): Promise<void> {
       // Show progress message
       showMessage('Clearing existing foods and uploading new data...', 'success');
       
-      // First, clear all existing foods for this user
-      try {
-        await clearAllFoodsForUser();
-        console.log('🗑️ Cleared all existing foods');
-      } catch (error) {
-        console.warn('⚠️ Could not clear existing foods:', error);
-        // Continue with upload even if clearing fails
+              // Smart upload strategy: Check if user is admin
+        const { isCurrentUserAdmin } = await import('./auth');
+        const isAdmin = await isCurrentUserAdmin();
+        let shareGlobally = false; // Initialize for scope
+      
+      if (isAdmin) {
+        // Admin upload: Choice between replacing all OR only Excel-sourced foods
+        console.log('🔧 Admin upload detected - choosing upload strategy');
+        
+        const choice = confirm(
+          '🔧 SMART MODE UPLOAD (Recommended) 🔧\n\n' +
+          'This will:\n' +
+          '✅ Replace Excel-uploaded foods with new data\n' +
+          '✅ PRESERVE your manually added foods\n' +
+          '✅ Keep admin panel foods safe\n\n' +
+          'Click OK to use Smart Mode (recommended)\n' +
+          'Click Cancel for old "Replace All" mode'
+        );
+        
+        if (choice) {
+          // SMART MODE: Only delete foods that were uploaded from Excel (preserve manual foods)
+          console.log('🔧 Smart Mode activated: Preserving manually added admin foods');
+          try {
+            const { error } = await supabase
+              .from('foods')
+              .delete()
+              .eq('created_by', 'Excel Upload')
+              .is('user_id', null); // Only delete global Excel foods
+            
+            if (error) throw error;
+            console.log('🗑️ Cleared only Excel-uploaded foods, manually added admin foods preserved');
+          } catch (error) {
+            console.warn('⚠️ Could not clear Excel foods:', error);
+          }
+        } else {
+          // REPLACE ALL MODE: Traditional behavior
+          const confirmed = confirm(
+            '⚠️ FINAL WARNING ⚠️\n\n' +
+            'This will DELETE ALL FOODS including manually added ones.\n' +
+            'Are you absolutely sure?'
+          );
+          
+          if (!confirmed) {
+            showMessage('Upload cancelled', 'error');
+            input.value = '';
+            return;
+          }
+          
+          try {
+            // Clear ALL foods in database (admin privilege)
+            const { error } = await supabase
+              .from('foods')
+              .delete()
+              .neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all
+            
+            if (error) throw error;
+            console.log('🗑️ Cleared entire food database');
+          } catch (error) {
+            console.warn('⚠️ Could not clear database:', error);
+          }
+        }
+        
+      } else {
+        // Regular user upload: Smart approach to prevent database bloat
+        console.log('👤 User upload detected - using smart sharing approach');
+        
+        shareGlobally = confirm(
+          '🌍 SMART SHARING (Recommended) 🌍\n\n' +
+          'To prevent database bloat, we recommend sharing Excel data globally:\n\n' +
+          '✅ Adds foods to shared global database\n' +
+          '✅ Prevents duplicate storage\n' +
+          '✅ All users benefit from shared data\n' +
+          '✅ Shows your name as contributor\n\n' +
+          'Click OK to share globally (recommended)\n' +
+          'Click Cancel for personal-only storage'
+        );
+        
+        if (shareGlobally) {
+          // SMART SHARING: Add to global database with user attribution
+          console.log('🌍 Smart sharing mode: Adding to global database');
+          try {
+            // Clear only Excel uploads to prevent endless duplication
+            const { error } = await supabase
+              .from('foods')
+              .delete()
+              .eq('created_by', 'Excel Upload')
+              .is('user_id', null); // Only delete global Excel foods
+            
+            if (error) throw error;
+            console.log('🗑️ Cleared previous Excel uploads to prevent duplication');
+          } catch (error) {
+            console.warn('⚠️ Could not clear previous Excel uploads:', error);
+          }
+        } else {
+          // PERSONAL MODE: Traditional user-specific storage
+          console.log('👤 Personal mode: User-specific storage');
+          try {
+            await clearAllFoodsForUser();
+            console.log('🗑️ Cleared user\'s existing foods');
+          } catch (error) {
+            console.warn('⚠️ Could not clear existing foods:', error);
+          }
+        }
       }
       
-      // Add user_id to each food item
-      const foodsWithUserId = foods.map(food => ({
-        ...food,
-        user_id: user.id
-      }));
+      // Determine metadata based on upload strategy
+      let foodsWithMetadata;
+      
+      if (isAdmin) {
+        // Admin uploads: Always global
+        foodsWithMetadata = foods.map(food => ({
+          ...food,
+          user_id: null,
+          created_by: 'Excel Upload'
+        }));
+      } else {
+        // Regular user uploads: Check sharing choice
+        if (shareGlobally) {
+          // Smart sharing: Global with user attribution
+          foodsWithMetadata = foods.map(food => ({
+            ...food,
+            user_id: null, // Global access
+            created_by: `Excel Upload by ${user.email || 'User'}`
+          }));
+        } else {
+          // Personal storage: User-specific
+          foodsWithMetadata = foods.map(food => ({
+            ...food,
+            user_id: user.id,
+            created_by: user.email
+          }));
+        }
+      }
       
       // Save all foods to database in bulk (much faster!)
-      console.log(`💾 Saving ${foodsWithUserId.length} foods in bulk...`);
+      console.log(`💾 Saving ${foodsWithMetadata.length} foods in bulk...`);
       
       let savedCount = 0;
       let errorCount = 0;
       
       try {
-        await saveAllFoodsToDatabase(foodsWithUserId);
-        console.log(`✅ Successfully saved all ${foodsWithUserId.length} foods`);
-        savedCount = foodsWithUserId.length;
+        await saveAllFoodsToDatabase(foodsWithMetadata);
+        console.log(`✅ Successfully saved all ${foodsWithMetadata.length} foods`);
+        savedCount = foodsWithMetadata.length;
         errorCount = 0;
       } catch (error) {
         console.error('❌ Failed to save foods in bulk:', error);
@@ -281,7 +403,7 @@ export async function handleFoodFileUpload(event: Event): Promise<void> {
         savedCount = 0;
         errorCount = 0;
         
-        for (const food of foodsWithUserId) {
+        for (const food of foodsWithMetadata) {
           try {
             await saveFoodToDatabase(food);
             savedCount++;
@@ -475,6 +597,7 @@ function parseFoodLines(lines: any[][]): any[] {
             brand: brand ? toTitleCase(brand) : '',
             carbs: carbs,
             fat: fat,
+            instructions: '',  // Initialize empty instructions for Excel imports
             protein: protein,
             category: sectionHeader,
             created_at: new Date().toISOString(),
@@ -508,7 +631,8 @@ export async function addFood(foodData: any): Promise<void> {
 
     const foodWithUserId = {
       ...foodData,
-      user_id: user.id
+      user_id: user.id,
+      created_by: user.email
     };
 
     await saveFoodToDatabase(foodWithUserId);
@@ -658,13 +782,21 @@ export function updateShoppingListDisplay(): void {
   const shoppingItems = document.getElementById('shoppingItems');
   if (!shoppingItems) return;
   
+      // Removed excessive logging for performance
+  
   shoppingItems.innerHTML = '';
   let totalCarbs = 0;
   let totalFat = 0;
   let totalProtein = 0;
 
+  // Force reload shopping list data if display shows empty but totals are non-zero
   if (shoppingList.length === 0) {
     shoppingItems.innerHTML = '<p class="empty-state">Your shopping list is empty. Add some foods from the Food Tracker!</p>';
+    
+    // Reset totals to zero when list is empty
+    totalCarbs = 0;
+    totalFat = 0;
+    totalProtein = 0;
   } else {
     // Group items by category
     const grouped: { [key: string]: any[] } = {};
@@ -698,14 +830,16 @@ export function updateShoppingListDisplay(): void {
           <div class="item-info">
             <h4>${name}</h4>
             ${brand ? `<span class="item-brand">Brand: ${brand}</span>` : ''}
-            <span class="item-quantity">Qty: ${item.quantity}</span>
+            <div class="item-nutrition">
+              <span>Carbs: ${carbs.toFixed(1)}g</span>
+              <span>Fat: ${fat.toFixed(1)}g</span>  
+              <span>Protein: ${protein.toFixed(1)}g</span>
+            </div>
           </div>
-          <div class="item-nutrition">
-            <span>carbs: ${carbs.toFixed(1)}g</span>
-            <span>fat: ${fat.toFixed(1)}g</span>  
-            <span>protein: ${protein.toFixed(1)}g</span>
+          <div class="food-attribution">
+            <span>Quantity: ${item.quantity}</span>
+            <button class="remove-btn" onclick="handleRemoveFromShoppingList('${item.food_id || item.id}')">Remove</button>
           </div>
-          <button class="remove-btn" onclick="handleRemoveFromShoppingList('${item.food_id || item.id}')">Remove</button>
         `;
         itemsGrid.appendChild(itemElement);
         
@@ -728,16 +862,58 @@ export function updateShoppingListDisplay(): void {
   if (totalCarbsEl) totalCarbsEl.textContent = totalCarbs.toFixed(1) + 'g';
   if (totalFatEl) totalFatEl.textContent = totalFat.toFixed(1) + 'g';
   if (totalProteinEl) totalProteinEl.textContent = totalProtein.toFixed(1) + 'g';
+  
+      // Removed excessive logging for performance
+  
+  // Force clear orphaned data if we have inconsistent state (empty list but non-zero totals)
+  if (shoppingList.length === 0 && (totalCarbs > 0 || totalFat > 0 || totalProtein > 0)) {
+    console.warn('⚠️ Detected orphaned shopping list data - clearing...');
+    forceRefreshShoppingList();
+  }
+}
+
+// Force refresh shopping list data (clears orphaned data)
+async function forceRefreshShoppingList(): Promise<void> {
+  try {
+    console.log('🔧 Force refreshing shopping list to clear orphaned data...');
+    
+    // Clear database shopping list for current user
+    await clearShoppingListFromDatabase();
+    
+    // Clear local array
+    shoppingList = [];
+    
+    // Reload fresh data
+    await loadShoppingListData();
+    
+    console.log('✅ Shopping list force refresh completed');
+  } catch (error) {
+    console.error('❌ Error during force refresh:', error);
+  }
 }
 
 // Clear shopping list function
 export async function clearShoppingList(): Promise<void> {
   try {
+    console.log('🧹 FOOD-TRACKER: Starting shopping list clear...');
+    
     // Clear from database first
     await clearShoppingListFromDatabase();
+    console.log('✅ Database cleared');
     
     // Clear from local array
     shoppingList = [];
+    console.log('✅ Local food-tracker array cleared');
+    
+    // Also try to clear the shopping-list.ts system (skip database since we already cleared it)
+    try {
+      if (typeof (window as any).clearAllShoppingItems === 'function') {
+        await (window as any).clearAllShoppingItems(true); // true = skip database clear
+        console.log('✅ shopping-list.ts system also cleared');
+      }
+    } catch (error) {
+      console.warn('⚠️ Could not clear shopping-list.ts system:', error);
+    }
     
     updateShoppingListDisplay();
     
@@ -748,11 +924,19 @@ export async function clearShoppingList(): Promise<void> {
       return activeCategory === 'all' || food.category?.toLowerCase() === activeCategory.toLowerCase();
     }));
     
+    console.log('🎉 Shopping list fully cleared!');
     showMessage('Shopping list cleared! 🧹', 'success');
   } catch (error) {
-    console.error('Error clearing shopping list:', error);
+    console.error('❌ Error clearing shopping list:', error);
     showMessage('Error clearing shopping list', 'error');
   }
+}
+
+// Reload shopping list from database and update display
+export async function reloadShoppingListFromDatabase(): Promise<void> {
+  console.log('🔄 Reloading shopping list from database...');
+  await loadShoppingListData();
+  console.log('✅ Shopping list reloaded successfully');
 }
 
 // Global declarations for TypeScript
@@ -765,8 +949,12 @@ declare global {
     clearShoppingList: () => Promise<void>;
     handleClearShoppingList: () => void;
     updateShoppingListDisplay: () => void;
+    reloadShoppingListFromDatabase: () => Promise<void>;
     printShoppingList: () => void;
     handleClearFoodTracker: () => void;
+    reloadFoodTracker: () => Promise<void>;
+    loadAndDisplayFoods: () => Promise<void>;
+    editFood: (foodId: string) => void;
   }
 }
 
@@ -778,7 +966,36 @@ window.filterByCategory = filterByCategory;
 window.clearShoppingList = clearShoppingList;
 window.handleClearShoppingList = handleClearShoppingList;
 window.updateShoppingListDisplay = updateShoppingListDisplay;
+window.reloadShoppingListFromDatabase = reloadShoppingListFromDatabase;
 window.printShoppingList = printShoppingList;
+window.loadAndDisplayFoods = loadAndDisplayFoods;
+window.reloadFoodTracker = loadAndDisplayFoods; // Alias for reloadFoodTracker
+window.editFood = editFood;
+
+// Debug function for console use
+(window as any).debugShoppingList = function() {
+  console.log('🔧 DEBUG: Shopping List State');
+  console.log('📊 FOOD-TRACKER array length:', shoppingList.length);
+  console.log('📋 FOOD-TRACKER array contents:', shoppingList);
+  
+  // Also check shopping-list.ts system
+  if (typeof (window as any).getCurrentShoppingList === 'function') {
+    const currentList = (window as any).getCurrentShoppingList();
+    console.log('📊 SHOPPING-LIST array length:', currentList.length);
+    console.log('📋 SHOPPING-LIST array contents:', currentList);
+  }
+  
+  updateShoppingListDisplay();
+};
+
+(window as any).forceFixShoppingList = function() {
+  console.log('🔧 FORCE FIX: Clearing shopping list completely');
+  forceRefreshShoppingList().then(() => {
+    console.log('✅ Shopping list force fix completed');
+  }).catch(error => {
+    console.error('❌ Error during force fix:', error);
+  });
+};
 window.handleClearFoodTracker = () => {
   handleClearFoodTracker().catch(error => {
     console.error('Error clearing food tracker:', error);
@@ -786,12 +1003,26 @@ window.handleClearFoodTracker = () => {
   });
 };
 
-// Wrapper function for clear shopping list
+// Wrapper function for clear shopping list - ensure both systems are cleared
 function handleClearShoppingList(): void {
-  clearShoppingList().catch(error => {
-    console.error('Error clearing shopping list:', error);
-    showMessage('Error clearing shopping list', 'error');
-  });
+  console.log('🗑️ FOOD-TRACKER: Clear shopping list requested...');
+  
+  // Check if we have items to clear
+  if (!shoppingList || shoppingList.length === 0) {
+    showMessage('Shopping list is already empty!', 'success');
+    return;
+  }
+  
+  const confirmed = confirm(`Are you sure you want to clear all ${shoppingList.length} items from your shopping list? This cannot be undone.`);
+  
+  if (confirmed) {
+    clearShoppingList().catch(error => {
+      console.error('Error clearing shopping list:', error);
+      showMessage('Error clearing shopping list', 'error');
+    });
+  } else {
+    console.log('🚫 Clear shopping list cancelled by user');
+  }
 }
 
 // Wrapper function for remove from shopping list  
@@ -1125,3 +1356,115 @@ export async function handleClearFoodTracker(): Promise<void> {
     showMessage('Error clearing food tracker: ' + (error as Error).message, 'error');
   }
 }
+
+// Add editFood function
+export function editFood(foodId: string): void {
+    const food = allFoods.find(f => f.id === foodId);
+    if (!food) {
+        console.error('Food not found:', foodId);
+        return;
+    }
+
+    // Get form elements
+    const editForm = document.getElementById('editFoodForm') as HTMLFormElement;
+    const editFoodId = document.getElementById('editFoodId') as HTMLInputElement;
+    const editFoodName = document.getElementById('editFoodName') as HTMLInputElement;
+    const editFoodBrand = document.getElementById('editFoodBrand') as HTMLInputElement;
+    const editFoodCarbs = document.getElementById('editFoodCarbs') as HTMLInputElement;
+    const editFoodFat = document.getElementById('editFoodFat') as HTMLInputElement;
+    const editFoodProtein = document.getElementById('editFoodProtein') as HTMLInputElement;
+    const editFoodInstructions = document.getElementById('editFoodInstructions') as HTMLTextAreaElement;
+    const editFoodCategory = document.getElementById('editFoodCategory') as HTMLSelectElement;
+
+    if (!editForm || !editFoodId || !editFoodName || !editFoodBrand || !editFoodCarbs || 
+        !editFoodFat || !editFoodProtein || !editFoodInstructions || !editFoodCategory) {
+        console.error('Edit form elements not found');
+        return;
+    }
+
+    // Populate form
+    editFoodId.value = food.id;
+    editFoodName.value = food.name;
+    editFoodBrand.value = food.brand || '';
+    editFoodCarbs.value = food.carbs || '0';
+    editFoodFat.value = food.fat || '0';
+    editFoodProtein.value = food.protein || '0';
+    editFoodInstructions.value = food.instructions || '';
+    editFoodCategory.value = food.category || 'OTHER';
+
+    // Show edit form modal
+    const editModal = document.getElementById('editFoodModal');
+    if (editModal) {
+        editModal.style.display = 'block';
+    }
+}
+
+// Cancel food edit
+export function cancelFoodEdit(): void {
+    const modal = document.getElementById('editFoodModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
+// Delete food
+export async function deleteFoodFromEdit(): Promise<void> {
+    const editFoodId = document.getElementById('editFoodId') as HTMLInputElement;
+    if (!editFoodId || !editFoodId.value) {
+        showMessage('No food selected for deletion', 'error');
+        return;
+    }
+
+    const confirmed = confirm('Are you sure you want to delete this food?');
+    if (!confirmed) return;
+
+    try {
+        await deleteFoodFromDatabase(editFoodId.value);
+        showMessage('Food deleted successfully', 'success');
+        cancelFoodEdit();
+        await loadAndDisplayFoods();
+    } catch (error) {
+        console.error('Error deleting food:', error);
+        showMessage('Error deleting food', 'error');
+    }
+}
+
+// Setup form submission handler
+document.addEventListener('DOMContentLoaded', () => {
+    const editFoodForm = document.getElementById('editFoodForm') as HTMLFormElement;
+    if (editFoodForm) {
+        editFoodForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+
+            const foodId = (document.getElementById('editFoodId') as HTMLInputElement).value;
+            const name = (document.getElementById('editFoodName') as HTMLInputElement).value;
+            const brand = (document.getElementById('editFoodBrand') as HTMLInputElement).value;
+            const carbs = parseFloat((document.getElementById('editFoodCarbs') as HTMLInputElement).value);
+            const fat = parseFloat((document.getElementById('editFoodFat') as HTMLInputElement).value);
+            const protein = parseFloat((document.getElementById('editFoodProtein') as HTMLInputElement).value);
+            const instructions = (document.getElementById('editFoodInstructions') as HTMLTextAreaElement).value;
+            const category = (document.getElementById('editFoodCategory') as HTMLSelectElement).value;
+
+            try {
+                const updatedFood = {
+                    id: foodId,
+                    name,
+                    brand,
+                    carbs,
+                    fat,
+                    protein,
+                    instructions,
+                    category
+                };
+
+                await updateFoodInDatabase(updatedFood);
+                showMessage('Food updated successfully', 'success');
+                cancelFoodEdit();
+                await loadAndDisplayFoods();
+            } catch (error) {
+                console.error('Error updating food:', error);
+                showMessage('Error updating food', 'error');
+            }
+        });
+    }
+});

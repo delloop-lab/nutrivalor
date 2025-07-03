@@ -5,7 +5,7 @@ import { supabase } from './supabase-client';
 
 // Initialize database connection
 export async function initializeDatabase(): Promise<void> {
-    console.log('🗄️ Initializing database...');
+    // Removed excessive logging for performance
     
     if (!supabase) {
         throw new Error('Supabase client not initialized');
@@ -18,7 +18,7 @@ export async function initializeDatabase(): Promise<void> {
             console.warn('Database tables may not be created yet:', error.message);
             console.log('Please run the SQL script from database-setup.sql in your Supabase dashboard');
         } else {
-            console.log('✅ Database connection verified');
+            // Removed excessive logging for performance
         }
     } catch (error) {
         console.warn('Database verification failed:', error);
@@ -29,9 +29,35 @@ export async function initializeDatabase(): Promise<void> {
 export async function saveFoodToDatabase(food: any): Promise<any> {
     if (!supabase) throw new Error('Supabase not initialized');
     
+    // Get current user to add attribution
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    let createdBy = 'Unknown User';
+    
+    if (!userError && user) {
+        // Try to get user's display name from profile
+        try {
+            const { data: profile } = await supabase
+                .from('user_profiles')
+                .select('name')
+                .eq('user_id', user.id)
+                .single();
+            
+            createdBy = profile?.name || user.email || 'Unknown User';
+        } catch (error) {
+            // Fallback to email if profile doesn't exist
+            createdBy = user.email || 'Unknown User';
+        }
+    }
+    
+    // Add creator attribution to food data
+    const foodWithAttribution = {
+        ...food,
+        created_by: createdBy
+    };
+    
     const { data, error } = await supabase
         .from('foods')
-        .insert([food])
+        .insert([foodWithAttribution])
         .select();
         
     if (error) throw error;
@@ -62,13 +88,14 @@ export async function loadFoodsFromDatabase(): Promise<any[]> {
         return [];
     }
     
+    // Get foods for current user and global foods (no user_id restriction for admin-added foods)
     const { data, error } = await supabase
         .from('foods')
         .select('*')
-        .eq('user_id', user.id)
         .order('name');
         
     if (error) throw error;
+    
     return data || [];
 }
 
@@ -167,6 +194,7 @@ export async function deleteMealFromDatabase(id: string): Promise<void> {
 
 // Shopping list operations
 export async function addToShoppingList(foodId: string, quantity: number = 1): Promise<any> {
+    console.log(`🗄️ DATABASE: addToShoppingList called with foodId="${foodId}", quantity=${quantity}`);
     if (!supabase) throw new Error('Supabase not initialized');
     
     // Get current user
@@ -176,15 +204,16 @@ export async function addToShoppingList(foodId: string, quantity: number = 1): P
     }
     
     // First, get the food details to populate the shopping list entry
+    // Note: Don't filter by user_id since foods can be global (user_id=null) or from other users
     const { data: food, error: foodError } = await supabase
         .from('foods')
         .select('*')
         .eq('id', foodId)
-        .eq('user_id', user.id)
         .single();
     
     if (foodError || !food) {
-        throw new Error('Food not found or access denied');
+        console.error('🗄️ DATABASE: Food lookup failed:', foodError);
+        throw new Error(`Food not found with ID: ${foodId}`);
     }
     
     // Check if this food item already exists in the shopping list
@@ -213,7 +242,8 @@ export async function addToShoppingList(foodId: string, quantity: number = 1): P
             .select();
             
         if (error) throw error;
-        console.log(`✅ Updated "${food.name}" quantity to ${existingItem.quantity + quantity}`);
+        console.log(`✅ DATABASE: Updated "${food.name}" quantity to ${existingItem.quantity + quantity}`);
+        console.log(`🗄️ DATABASE: Update response:`, data[0]);
         return data[0];
     } else {
         // Item doesn't exist, create new entry
@@ -234,12 +264,14 @@ export async function addToShoppingList(foodId: string, quantity: number = 1): P
             .select();
             
         if (error) throw error;
-        console.log(`✅ Added new item "${food.name}" to shopping list`);
+        console.log(`✅ DATABASE: Added new item "${food.name}" to shopping list`);
+        console.log(`🗄️ DATABASE: Insert response:`, data[0]);
         return data[0];
     }
 }
 
 export async function loadShoppingListFromDatabase(): Promise<any[]> {
+    // Removed excessive logging for performance
     if (!supabase) throw new Error('Supabase not initialized');
     
     // Get current user
@@ -248,13 +280,18 @@ export async function loadShoppingListFromDatabase(): Promise<any[]> {
         throw new Error('User must be authenticated to view shopping list');
     }
     
+    // Removed excessive logging for performance
     const { data, error } = await supabase
         .from('shopping_list')
         .select('*')
         .eq('user_id', user.id)
         .order('created_at');
         
-    if (error) throw error;
+    if (error) {
+        console.error('🗄️ DATABASE: Error querying shopping list:', error);
+        throw error;
+    }
+    
     return data || [];
 }
 
@@ -312,4 +349,182 @@ export async function clearShoppingListFromDatabase(): Promise<void> {
         
     if (error) throw error;
     console.log('✅ Cleared shopping list for user:', user.id);
+}
+
+// Profile operations
+export async function saveProfileToDatabase(profileData: any): Promise<any> {
+    if (!supabase) throw new Error('Supabase not initialized');
+    
+    // Get current user
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError || !user) {
+        throw new Error('User must be authenticated to save profile');
+    }
+    
+    const profileRecord = {
+        user_id: user.id,
+        name: profileData.name,
+        date_of_birth: profileData.dateOfBirth,
+        age: profileData.age ? parseInt(profileData.age) : null,
+        gender: profileData.gender,
+        height: profileData.height ? parseFloat(profileData.height) : null,
+        height_unit: profileData.heightUnit || 'cm',
+        ideal_weight: profileData.idealWeight ? parseFloat(profileData.idealWeight) : null,
+        weight_unit: profileData.weightUnit || 'kg',
+        country: profileData.country,
+        avatar_url: profileData.avatar,
+        updated_at: new Date().toISOString()
+    };
+    
+    // Check if profile already exists
+    const { data: existingProfile, error: checkError } = await supabase
+        .from('user_profiles')
+        .select('id')
+        .eq('user_id', user.id)
+        .single();
+    
+    if (checkError && checkError.code !== 'PGRST116') {
+        throw checkError;
+    }
+    
+    if (existingProfile) {
+        // Update existing profile
+        const { data, error } = await supabase
+            .from('user_profiles')
+            .update(profileRecord)
+            .eq('user_id', user.id)
+            .select();
+        
+        if (error) throw error;
+        return data[0];
+    } else {
+        // Insert new profile
+        const { data, error } = await supabase
+            .from('user_profiles')
+            .insert([profileRecord])
+            .select();
+        
+        if (error) throw error;
+        return data[0];
+    }
+}
+
+export async function loadProfileFromDatabase(): Promise<any | null> {
+    if (!supabase) throw new Error('Supabase not initialized');
+    
+    // Get current user
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError || !user) {
+        console.log('No authenticated user, returning null profile');
+        return null;
+    }
+    
+    const { data, error } = await supabase
+        .from('user_profiles')
+        .select('*')
+        .eq('user_id', user.id)
+        .single();
+    
+    if (error) {
+        if (error.code === 'PGRST116') {
+            // No profile found - this is normal for new users
+            return null;
+        }
+        throw error;
+    }
+    
+    return data;
+}
+
+export async function deleteProfileFromDatabase(): Promise<void> {
+    if (!supabase) throw new Error('Supabase not initialized');
+    
+    // Get current user
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError || !user) {
+        throw new Error('User must be authenticated to delete profile');
+    }
+    
+    const { error } = await supabase
+        .from('user_profiles')
+        .delete()
+        .eq('user_id', user.id);
+    
+    if (error) throw error;
+    console.log('✅ Deleted profile for user:', user.id);
+}
+
+// Weight tracking operations
+export async function saveWeightEntryToDatabase(weight: number, entryDate: string, notes?: string): Promise<any> {
+    if (!supabase) throw new Error('Supabase not initialized');
+    
+    // Get current user
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError || !user) {
+        throw new Error('User must be authenticated to save weight entry');
+    }
+    
+    const weightEntry = {
+        user_id: user.id,
+        weight: weight,
+        entry_date: entryDate,
+        notes: notes || null
+    };
+    
+    const { data, error } = await supabase
+        .from('weight_entries')
+        .insert([weightEntry])
+        .select();
+    
+    if (error) throw error;
+    return data[0];
+}
+
+export async function loadWeightEntriesFromDatabase(): Promise<any[]> {
+    if (!supabase) throw new Error('Supabase not initialized');
+    
+    // Get current user
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError || !user) {
+        console.log('No authenticated user, returning empty weight entries');
+        return [];
+    }
+    
+    const { data, error } = await supabase
+        .from('weight_entries')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('entry_date', { ascending: true });
+    
+    if (error) throw error;
+    return data || [];
+}
+
+export async function deleteWeightEntryFromDatabase(entryId: string): Promise<void> {
+    if (!supabase) throw new Error('Supabase not initialized');
+    
+    const { error } = await supabase
+        .from('weight_entries')
+        .delete()
+        .eq('id', entryId);
+    
+    if (error) throw error;
+}
+
+export async function clearAllWeightEntriesFromDatabase(): Promise<void> {
+    if (!supabase) throw new Error('Supabase not initialized');
+    
+    // Get current user
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError || !user) {
+        throw new Error('User must be authenticated to clear weight entries');
+    }
+    
+    const { error } = await supabase
+        .from('weight_entries')
+        .delete()
+        .eq('user_id', user.id);
+    
+    if (error) throw error;
+    console.log('✅ Cleared all weight entries for user:', user.id);
 }
