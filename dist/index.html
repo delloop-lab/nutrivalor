@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NutriValor - Food Tracking Web App</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Poppins:wght@600;700&display=swap" rel="stylesheet">
-    <link rel="icon" type="image/png" href="/assets/nutrime-akfdXWxP.png">
-  <script type="module" crossorigin src="/assets/main-BEAKZ9OB.js"></script>
-  <link rel="stylesheet" crossorigin href="/assets/main-CPFtL634.css">
+    <link rel="icon" type="image/png" href="./src/assets/nutrime.png">
+  <script type="module" crossorigin src="/assets/main-yQ0goevf.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/main-DvH7_iBz.css">
 </head>
 <body>
     <!-- Loading Screen -->
@@ -19,7 +19,7 @@
     <!-- Authentication Section -->
     <div id="auth-section" class="auth-section" style="display: none;">
         <div class="auth-container">
-                            <img src="/assets/nutrivalor_logo-D3bW1v5k.png" alt="NutriValor" class="auth-logo">
+                            <img src="/assets/nutrivalor_logo-KEScQNFM.png" alt="NutriValor" class="auth-logo">
                 <h1>Welcome to NutriValor</h1>
                             <p>Value your Nutrition</p>
             
@@ -68,7 +68,7 @@
         <!-- Header -->
         <header class="app-header">
             <div class="header-content">
-                <img src="/assets/nutrivalor_logo-D3bW1v5k.png" alt="NutriValor" class="header-logo">
+                <img src="/assets/nutrivalor_logo-KEScQNFM.png" alt="NutriValor" class="header-logo">
                 <div class="header-actions">
                     <div class="user-profile">
                         <div class="header-avatar">
@@ -124,7 +124,7 @@
                 <div class="section-header">
                     <h2>Food Tracker</h2>
                     <div class="section-actions">
-                        <button onclick="showUploadModal()" class="load-btn-color">Load Updated Food Data</button>
+                        <button class="load-btn-color" disabled style="opacity:0.5;cursor:not-allowed;">Load Updated Food Data (Disabled)</button>
                         <button onclick="handleClearFoodTracker()" class="remove-btn-color">Clear List</button>
                     </div>
                 </div>
@@ -150,7 +150,7 @@
                 <div class="section-header">
                     <h2>Meals</h2>
                     <div class="section-actions">
-                        <button onclick="showMealUploadModal()" class="load-btn-color">Load Updated Meal Data</button>
+                        <button class="load-btn-color" disabled style="opacity:0.5;cursor:not-allowed;">Load Updated Meal Data (Disabled)</button>
                         <button onclick="handleClearMeals()" class="remove-btn-color">Clear Meals</button>
                     </div>
                 </div>
@@ -512,7 +512,6 @@
 
                         <div class="profile-actions">
                             <button onclick="updateProfile()" class="update-profile-btn-color">Update Profile</button>
-                            <button onclick="loadProfile()" class="load-btn-color">Load Saved Profile</button>
                         </div>
                     </div>
 
@@ -556,59 +555,157 @@
                     <!-- Food Management Card -->
                     <div class="admin-card">
                         <h3>Food Database Management</h3>
-                        <p class="admin-description">Add new food items to the global food database</p>
+                        <p class="admin-description">Add new food items and edit existing foods in the database</p>
                         
-                        <!-- Add Food Form -->
-                        <form id="addFoodForm" class="add-food-form">
-                            <div class="food-form-grid">
-                                <div class="input-group">
-                                    <label for="foodName">Food Name *</label>
-                                    <input type="text" id="foodName" name="foodName" required placeholder="e.g., Almond Milk - Unsweetened">
-                                    <div id="duplicateWarning" class="duplicate-warning" style="display: none;">
-                                        ⚠️ This food item already exists in the database
+                        <div class="two-column-layout">
+                            <!-- Add Food Section -->
+                            <div class="column-section">
+                                <h4>Add New Food</h4>
+                                <p>Add a new food to your list.</p>
+                                <form id="addFoodForm" class="add-food-form">
+                                    <div class="food-form-grid">
+                                        <div class="input-group">
+                                            <label for="foodName">Food Name *</label>
+                                            <input type="text" id="foodName" name="foodName" required placeholder="e.g., Almond Milk - Unsweetened">
+                                            <div id="duplicateWarning" class="duplicate-warning" style="display: none;">
+                                                ⚠️ This food item already exists in the database
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="input-group">
+                                            <label for="foodBrand">Brand (Optional)</label>
+                                            <input type="text" id="foodBrand" name="foodBrand" placeholder="e.g., Silk, Organic Valley">
+                                        </div>
+                                        
+                                        <div class="input-group">
+                                            <label for="foodCategory">Category</label>
+                                            <select id="foodCategory" name="foodCategory" required>
+                                                <option value="">Select Category</option>
+                                                <option value="VEGETABLES">Vegetables</option>
+                                                <option value="SALAD">Salad</option>
+                                                <option value="DAIRY">Dairy</option>
+                                                <option value="PROTEIN">Protein</option>
+                                                <option value="CONDIMENTS">Condiments</option>
+                                                <option value="DRINKS">Drinks</option>
+                                                <option value="OTHER">Other</option>
+                                            </select>
+                                        </div>
+                                        
+                                        <div class="input-group">
+                                            <label for="foodCarbs">Carbs (g)</label>
+                                            <input type="number" id="foodCarbs" name="foodCarbs" step="0.1" min="0" placeholder="0" value="0">
+                                        </div>
+                                        
+                                        <div class="input-group">
+                                            <label for="foodFat">Fat (g)</label>
+                                            <input type="number" id="foodFat" name="foodFat" step="0.1" min="0" placeholder="0" value="0">
+                                        </div>
+                                        
+                                        <div class="input-group">
+                                            <label for="foodProtein">Protein (g)</label>
+                                            <input type="number" id="foodProtein" name="foodProtein" step="0.1" min="0" placeholder="0" value="0">
+                                        </div>
                                     </div>
-                                </div>
-                                
-                                <div class="input-group">
-                                    <label for="foodBrand">Brand (Optional)</label>
-                                    <input type="text" id="foodBrand" name="foodBrand" placeholder="e.g., Silk, Organic Valley">
-                                </div>
-                                
-                                <div class="input-group">
-                                    <label for="foodCategory">Category</label>
-                                    <select id="foodCategory" name="foodCategory" required>
-                                        <option value="">Select Category</option>
-                                        <option value="VEGETABLES">Vegetables</option>
-                                        <option value="SALAD">Salad</option>
-                                        <option value="DAIRY">Dairy</option>
-                                        <option value="PROTEIN">Protein</option>
-                                        <option value="CONDIMENTS">Condiments</option>
-                                        <option value="DRINKS">Drinks</option>
-                                        <option value="OTHER">Other</option>
-                                    </select>
-                                </div>
-                                
-                                <div class="input-group">
-                                    <label for="foodCarbs">Carbs (g)</label>
-                                    <input type="number" id="foodCarbs" name="foodCarbs" step="0.1" min="0" placeholder="0" value="0">
-                                </div>
-                                
-                                <div class="input-group">
-                                    <label for="foodFat">Fat (g)</label>
-                                    <input type="number" id="foodFat" name="foodFat" step="0.1" min="0" placeholder="0" value="0">
-                                </div>
-                                
-                                <div class="input-group">
-                                    <label for="foodProtein">Protein (g)</label>
-                                    <input type="number" id="foodProtein" name="foodProtein" step="0.1" min="0" placeholder="0" value="0">
+                                    
+                                    <div class="form-actions">
+                                        <button type="submit" class="save-btn-color">Add Food Item</button>
+                                        <button type="reset" class="cancel-btn">Clear Form</button>
+                                    </div>
+                                </form>
+                            </div>
+
+                            <!-- Edit Food Section -->
+                            <div class="column-section">
+                                <h4>Edit Food</h4>
+                                <p>Edit a food you've already added.</p>
+                                <div class="form-card">
+                                    <button onclick="openEditFoodModal()" class="primary-btn">Edit Food</button>
                                 </div>
                             </div>
-                            
-                            <div class="form-actions">
-                                <button type="submit" class="save-btn-color">Add Food Item</button>
-                                <button type="reset" class="cancel-btn">Clear Form</button>
+                        </div>
+                    </div>
+
+                    <!-- Meal Management Card -->
+                    <div class="admin-card">
+                        <h3>Meal Database Management</h3>
+                        <p class="admin-description">Create new meals/recipes using ingredients from the food database</p>
+                        <div class="two-column-layout">
+                            <!-- Add Meal Section -->
+                            <div class="column-section">
+                                <h4>Add New Meal</h4>
+                                <p>Add a new meal to your list.</p>
+                                <form id="addMealForm" class="add-food-form">
+                                    <div class="food-form-grid meal-form-grid">
+                                        <div class="form-fields-col">
+                                            <div class="input-group">
+                                                <label for="mealName">Meal Name *</label>
+                                                <input type="text" id="mealName" name="mealName" required placeholder="e.g., Bacon and Eggs Breakfast">
+                                            </div>
+                                            <div class="input-group">
+                                                <label for="mealType">Meal Type *</label>
+                                                <select id="mealType" name="mealType" class="form-input" required>
+                                                    <option value="">Select Type</option>
+                                                    <option value="BREAKFAST">Breakfast</option>
+                                                    <option value="LUNCH">Lunch</option>
+                                                    <option value="DINNER">Dinner</option>
+                                                    <option value="SNACK">Snack</option>
+                                                    <option value="DESSERT">Dessert</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <div class="form-image-col">
+                                            <label for="mealPicture">Picture (Optional)</label>
+                                            <div class="meal-picture-upload compact">
+                                                <input type="file" id="mealPictureFile" accept="image/*" style="display: none;">
+                                                <input type="hidden" id="mealPicture" name="mealPicture">
+                                                <div class="picture-preview-container compact">
+                                                    <img id="mealPicturePreview" class="meal-picture-preview compact" style="display: none;" alt="Meal preview">
+                                                    <div id="mealPicturePlaceholder" class="meal-picture-placeholder compact">
+                                                        <span>📷 No image selected</span>
+                                                    </div>
+                                                </div>
+                                                <div class="picture-upload-buttons compact">
+                                                    <button type="button" onclick="document.getElementById('mealPictureFile').click()" class="upload-picture-btn">Choose Image</button>
+                                                    <button type="button" onclick="removeMealPicture()" id="removeMealPictureBtn" class="remove-picture-btn" style="display: none;">Remove</button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="cooking-instructions-section">
+                                        <h4>Cooking Instructions</h4>
+                                        <div class="input-group">
+                                            <label for="cookingInstructions">Instructions (Optional)</label>
+                                            <div class="rich-text-toolbar">
+                                                <button type="button" onclick="formatText('bold')" class="format-btn" title="Bold"><strong>B</strong></button>
+                                                <button type="button" onclick="formatText('italic')" class="format-btn" title="Italic"><em>I</em></button>
+                                                <button type="button" onclick="formatText('underline')" class="format-btn" title="Underline"><u>U</u></button>
+                                            </div>
+                                            <div id="cookingInstructions" contenteditable="true" class="rich-text-editor" placeholder="Enter cooking instructions here... (You can use the buttons above for formatting)"></div>
+                                            <input type="hidden" id="cookingInstructionsHidden" name="cookingInstructions">
+                                        </div>
+                                    </div>
+                                    <div class="ingredients-section">
+                                        <h4>Ingredients</h4>
+                                        <div id="ingredientsList" class="ingredient-list">
+                                            <!-- Ingredient items will be rendered here -->
+                                        </div>
+                                        <button type="button" class="add-ingredient-btn" onclick="window.openIngredientModal('add_to_meal')">+ Add Food to Meal</button>
+                                    </div>
+                                    <div class="form-actions">
+                                        <button type="submit" class="save-btn-color">Create Meal</button>
+                                        <button type="reset" class="cancel-btn">Clear Form</button>
+                                    </div>
+                                </form>
                             </div>
-                        </form>
+                            <!-- Edit Meal Section -->
+                            <div class="column-section">
+                                <h4>Edit Meal</h4>
+                                <p>Edit a meal you've already added.</p>
+                                <div class="form-card">
+                                    <button onclick="openEditMealModal()" class="primary-btn">Edit Meal</button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- Future Features Card -->
@@ -616,13 +713,15 @@
                         <h3>Coming Soon</h3>
                         <p class="admin-description">Additional admin features will be added here:</p>
                         <ul class="feature-list">
-                            <li>Recipe Management</li>
                             <li>System Analytics</li>
                             <li>User Activity Logs</li>
                             <li>Food Database Analytics</li>
+                            <li>Meal Analytics</li>
                         </ul>
                     </div>
                 </div>
+
+
             </section>
         </div>
     </div>
@@ -674,5 +773,171 @@
     </footer>
 
     <!-- Vite TypeScript Entry Point -->
+
+    <!-- SIMPLE EDIT FOOD MODAL -->
+    <div id="editFoodModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Edit Food</h3>
+                <button class="close-btn" onclick="closeEditFoodModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <!-- Food Selection -->
+                <div class="form-group">
+                    <label for="editFoodSelect">Select Food to Edit:</label>
+                    <select id="editFoodSelect" onchange="loadFoodForEdit(this.value)">
+                        <option value="">Choose a food...</option>
+                    </select>
+                </div>
+
+                <!-- Food Edit Form -->
+                <form id="editFoodForm" onsubmit="saveEditedFood(event)" style="display: none;">
+                    <input type="hidden" id="editFoodId">
+                    
+                    <div class="form-group">
+                        <label for="editFoodName">Food Name*</label>
+                        <input type="text" id="editFoodName" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="editFoodBrand">Brand</label>
+                        <input type="text" id="editFoodBrand">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="editFoodCategory">Category*</label>
+                        <select id="editFoodCategory" required>
+                            <option value="">Select Category</option>
+                            <option value="VEGETABLES">Vegetables</option>
+                            <option value="SALAD">Salad</option>
+                            <option value="DAIRY">Dairy</option>
+                            <option value="PROTEIN">Protein</option>
+                            <option value="CONDIMENTS">Condiments</option>
+                            <option value="DRINKS">Drinks</option>
+                            <option value="OTHER">Other</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="editFoodCarbs">Carbs (g)*</label>
+                        <input type="number" id="editFoodCarbs" min="0" step="0.1" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="editFoodFat">Fat (g)*</label>
+                        <input type="number" id="editFoodFat" min="0" step="0.1" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="editFoodProtein">Protein (g)*</label>
+                        <input type="number" id="editFoodProtein" min="0" step="0.1" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="editFoodInstructions">Cooking Instructions</label>
+                        <textarea id="editFoodInstructions" rows="8" style="min-height: 200px;"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="editFoodImage">Food Image</label>
+                        <div class="image-upload-section">
+                            <div class="image-preview-container">
+                                <img id="editFoodImagePreview" src="" alt="Food preview" style="display: none; max-width: 200px; max-height: 150px; border-radius: 8px;">
+                                <div id="editFoodImagePlaceholder" class="image-placeholder">
+                                    <span>No image uploaded</span>
+                                </div>
+                            </div>
+                            <div class="image-upload-controls">
+                                <input type="file" id="editFoodImage" accept="image/*" onchange="previewFoodImage(this)">
+                                <button type="button" class="secondary-btn" onclick="removeFoodImage()">Remove Image</button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-actions">
+                        <button type="submit" class="primary-btn">Save Changes</button>
+                        <button type="button" class="secondary-btn" onclick="closeEditFoodModal()">Cancel</button>
+                        <button type="button" class="danger-btn" onclick="deleteEditedFood()">Delete Food</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- SIMPLE EDIT MEAL MODAL -->
+    <div id="editMealModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Edit Meal</h3>
+                <button class="close-btn" onclick="closeEditMealModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <!-- Meal Selection -->
+                <div class="form-group">
+                    <label for="editMealSelect">Select Meal to Edit:</label>
+                    <select id="editMealSelect" onchange="loadMealForEdit(this.value)">
+                        <option value="">Choose a meal...</option>
+                    </select>
+                </div>
+
+                <!-- Meal Edit Form -->
+                <form id="editMealForm" onsubmit="saveEditedMeal(event)" style="display: none;">
+                    <input type="hidden" id="editMealId">
+                    
+                    <div class="form-group">
+                        <label for="editMealName">Meal Name*</label>
+                        <input type="text" id="editMealName" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="editMealType">Meal Type*</label>
+                        <select id="editMealType" required>
+                            <option value="">Select Type</option>
+                            <option value="BREAKFAST">Breakfast</option>
+                            <option value="LUNCH">Lunch</option>
+                            <option value="DINNER">Dinner</option>
+                            <option value="SNACK">Snack</option>
+                            <option value="DESSERT">Dessert</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="editMealInstructions">Overall Cooking Instructions</label>
+                        <textarea id="editMealInstructions" rows="8" style="min-height: 200px;"></textarea>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="editMealImage">Meal Image</label>
+                        <div class="image-upload-section">
+                            <div class="image-preview-container">
+                                <img id="editMealImagePreview" src="" alt="Meal preview" style="display: none; max-width: 200px; max-height: 150px; border-radius: 8px;">
+                                <div id="editMealImagePlaceholder" class="image-placeholder">
+                                    <span>No image uploaded</span>
+                                </div>
+                            </div>
+                            <div class="image-upload-controls">
+                                <input type="file" id="editMealImage" accept="image/*" onchange="previewMealImage(this)">
+                                <button type="button" class="secondary-btn" onclick="removeMealImage()">Remove Image</button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Ingredients Section -->
+                    <div class="form-group">
+                        <label>Ingredients</label>
+                        <div id="editMealIngredients">
+                            <!-- Ingredients will be added here -->
+                        </div>
+                        <button type="button" class="secondary-btn" onclick="addIngredientToMeal()">Add Ingredient</button>
+                    </div>
+                    
+                    <div class="form-actions">
+                        <button type="submit" class="primary-btn">Save Changes</button>
+                        <button type="button" class="secondary-btn" onclick="closeEditMealModal()">Cancel</button>
+                        <button type="button" class="danger-btn" onclick="deleteEditedMeal()">Delete Meal</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
 </body>
 </html> 

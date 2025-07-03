@@ -8,6 +8,7 @@ import { initializeMacroCalculator } from './js/macro-calculator';
 import { initializeMeals, reloadMeals } from './js/meals';
 import { initializeShoppingList } from './js/shopping-list';
 import './js/simple-edit';
+import nutrivalorLogo from './assets/nutrivalor_logo.png';
 
 // At the top of the file, after imports, add splash screen logic
 if (document.readyState === 'loading') {
@@ -31,7 +32,7 @@ function showSplashScreen() {
   splash.style.alignItems = 'center';
   splash.style.zIndex = '9999';
   splash.innerHTML = `
-    <img src="/src/assets/nutrivalor_logo.png" alt="NutriValor Logo" style="max-width: 320px; width: 40vw; height: auto; margin-bottom: 1rem;" />
+    <img src="${nutrivalorLogo}" alt="NutriValor Logo" style="max-width: 320px; width: 40vw; height: auto; margin-bottom: 1rem;" />
     <div style="font-size: 1.6rem; font-weight: 400; color: #8a99b3; font-family: 'Poppins', sans-serif; font-style: italic;">"Value your Nutrition"</div>
   `;
   document.body.appendChild(splash);
