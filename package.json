@@ -9,7 +9,14 @@
     "preview": "vite preview",
     "type-check": "tsc --noEmit"
   },
-  "keywords": ["food", "nutrition", "tracking", "supabase", "typescript", "vite"],
+  "keywords": [
+    "food",
+    "nutrition",
+    "tracking",
+    "supabase",
+    "typescript",
+    "vite"
+  ],
   "author": "Your Name",
   "license": "MIT",
   "engines": {
@@ -22,7 +29,9 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.38.0",
+    "@types/fs-extra": "^11.0.4",
     "chart.js": "^4.4.0",
+    "fs-extra": "^11.3.0",
     "xlsx": "^0.18.5"
   }
-} 
+}
