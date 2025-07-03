@@ -8,14 +8,12 @@ import { initializeMacroCalculator } from './js/macro-calculator';
 import { initializeMeals, reloadMeals } from './js/meals';
 import { initializeShoppingList } from './js/shopping-list';
 import './js/simple-edit';
-import nutrivalorLogo from './assets/nutrivalor_logo.png';
 
 // At the top of the file, after imports, add splash screen logic
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', showSplashScreen);
-} else {
-  showSplashScreen();
-}
+// Delay splash screen until after app initialization to ensure logo is available
+document.addEventListener('DOMContentLoaded', () => {
+  setTimeout(showSplashScreen, 100);
+});
 
 function showSplashScreen() {
   const splash = document.createElement('div');
@@ -31,8 +29,12 @@ function showSplashScreen() {
   splash.style.justifyContent = 'center';
   splash.style.alignItems = 'center';
   splash.style.zIndex = '9999';
+  // Find the logo dynamically by looking for existing logo references in the HTML
+  const existingLogo = document.querySelector('img[src*="nutrivalor_logo"]') as HTMLImageElement;
+  const logoPath = existingLogo ? existingLogo.src : '/assets/nutrivalor_logo.png';
+  
   splash.innerHTML = `
-    <img src="${nutrivalorLogo}" alt="NutriValor Logo" style="max-width: 320px; width: 40vw; height: auto; margin-bottom: 1rem;" />
+    <img src="${logoPath}" alt="NutriValor Logo" style="max-width: 320px; width: 40vw; height: auto; margin-bottom: 1rem;" />
     <div style="font-size: 1.6rem; font-weight: 400; color: #8a99b3; font-family: 'Poppins', sans-serif; font-style: italic;">"Value your Nutrition"</div>
   `;
   document.body.appendChild(splash);
