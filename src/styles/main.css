@@ -1705,24 +1705,34 @@ button {
 /* Message Toast */
 .message-toast {
     position: fixed;
-    top: 100px;
+    top: 20px;
     right: 20px;
-    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    padding: 15px 25px;
+    border-radius: 8px;
     color: white;
-    padding: 15px 20px;
-    border-radius: 10px;
-    box-shadow: 0 8px 32px rgba(0,0,0,0.1);
-    z-index: 10000;
-    transform: translateX(100%);
-    transition: transform 0.3s ease;
+    font-weight: 500;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    z-index: 9999;
+    transform: translateY(-20px);
+    opacity: 0;
+    transition: all 0.3s ease;
 }
 
 .message-toast.show {
-    transform: translateX(0);
+    transform: translateY(0);
+    opacity: 1;
 }
 
 .message-toast.error {
-    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+    background: linear-gradient(135deg, #e53e3e 0%, #c53030 100%);
+}
+
+.message-toast.success {
+    background: linear-gradient(135deg, #38a169 0%, #2f855a 100%);
+}
+
+.message-toast.info {
+    background: linear-gradient(135deg, #3182ce 0%, #2b6cb0 100%);
 }
 
 /* Empty States */
@@ -5031,4 +5041,112 @@ textarea[onchange*="updateIngredientInstructions"]:focus {
 
 .shopping-totals, .shopping-totals * {
     color: #fff !important;
+}
+
+/* Modal */
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1100;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s, visibility 0.3s;
+}
+
+.modal.show {
+    opacity: 1;
+    visibility: visible;
+}
+
+.modal-content {
+    background: white;
+    border-radius: 15px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+    width: 90%;
+    max-width: 500px;
+    animation: fadeIn 0.3s forwards;
+}
+
+/* Verification Modal Specific Styles */
+.verification-modal {
+    background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+}
+
+.verification-modal .modal-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 20px 25px;
+    border-radius: 15px 15px 0 0;
+    text-align: center;
+}
+
+.verification-modal .modal-header h3 {
+    font-size: 1.5rem;
+    margin: 0;
+    font-weight: 600;
+}
+
+.verification-modal .modal-body {
+    padding: 25px;
+    text-align: center;
+}
+
+.verification-modal .modal-body p {
+    font-size: 1.1rem;
+    margin-bottom: 15px;
+    color: #4a5568;
+    line-height: 1.6;
+}
+
+.verification-modal #verificationEmail {
+    font-weight: 600;
+    color: #4a5568;
+}
+
+.verification-actions {
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    margin-top: 25px;
+}
+
+.verification-actions button {
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.verification-actions .primary-btn {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    box-shadow: 0 4px 10px rgba(102, 126, 234, 0.3);
+}
+
+.verification-actions .primary-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 15px rgba(102, 126, 234, 0.4);
+}
+
+.verification-actions .secondary-btn {
+    background: white;
+    color: #4a5568;
+    border: 1px solid #e2e8f0;
+}
+
+.verification-actions .secondary-btn:hover {
+    background: #f8fafc;
+    border-color: #cbd5e0;
 }

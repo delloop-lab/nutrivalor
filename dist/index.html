@@ -6,8 +6,8 @@
     <title>NutriValor - Value your Nutrition</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Poppins:wght@600;700&display=swap" rel="stylesheet">
     <link rel="icon" type="image/x-icon" href="/assets/favico-C-B4lnju.ico">
-  <script type="module" crossorigin src="/assets/main-C0vK1pbR.js"></script>
-  <link rel="stylesheet" crossorigin href="/assets/main-DvH7_iBz.css">
+  <script type="module" crossorigin src="/assets/main-C3mX7JQu.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/main-CUU2YDDv.css">
 </head>
 <body>
     <!-- Loading Screen -->
@@ -59,6 +59,23 @@
                 <p class="auth-link">
                     <a href="#" data-auth-tab="login">Back to Login</a>
                 </p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Email Verification Modal -->
+    <div id="verificationModal" class="modal" style="display: none;">
+        <div class="modal-content verification-modal">
+            <div class="modal-header">
+                <h3>✅ You're Almost There!</h3>
+            </div>
+            <div class="modal-body">
+                <p>Just one more step to get started with Nutrivalor!</p>
+                <p>We've sent a confirmation link to <span id="verificationEmail"></span> — click it to verify your account and unlock full access.</p>
+                <div class="verification-actions">
+                    <button id="verificationGotIt" class="primary-btn">Got it!</button>
+                    <button id="verificationGoBack" class="secondary-btn">Send me back</button>
+                </div>
             </div>
         </div>
     </div>

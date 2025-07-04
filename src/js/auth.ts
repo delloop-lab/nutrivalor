@@ -250,27 +250,25 @@ export function showForgotPassword(): void {
   if (forgotForm) forgotForm.style.display = 'block';
 }
 
-// Show message to user
-function showMessage(message: string, type: 'success' | 'error' = 'success'): void {
-  // Create or update message element
-  let messageEl = document.getElementById('auth-message');
-  if (!messageEl) {
-    messageEl = document.createElement('div');
-    messageEl.id = 'auth-message';
-    messageEl.className = 'message';
-    const authSection = document.getElementById('auth-section');
-    if (authSection) {
-      authSection.insertBefore(messageEl, authSection.firstChild);
-    }
-  }
+// Show message toast
+function showMessage(message: string, type: 'success' | 'error' | 'info' = 'success'): void {
+  const toast = document.createElement('div');
+  toast.className = `message-toast ${type}`;
+  toast.textContent = message;
   
-  messageEl.textContent = message;
-  messageEl.className = `message ${type}`;
-  messageEl.style.display = 'block';
+  document.body.appendChild(toast);
   
-  // Hide after 5 seconds
+  // Force reflow to ensure animation works
+  void toast.offsetWidth;
+  
+  toast.classList.add('show');
+  
   setTimeout(() => {
-    if (messageEl) messageEl.style.display = 'none';
+    toast.classList.remove('show');
+    
+    setTimeout(() => {
+      document.body.removeChild(toast);
+    }, 300); // Match transition duration
   }, 5000);
 }
 
@@ -398,14 +396,63 @@ async function handleSignup(event: Event): Promise<void> {
     }
     
     if (data.user) {
-      await handleAuthSuccess(data.user);
-      showMessage('Account created successfully!', 'success');
+      // Show verification modal instead of proceeding to app
+      hideLoading();
+      showVerificationModal(email);
     }
     
   } catch (error) {
     console.error('Signup error:', error);
     showMessage('An error occurred during signup', 'error');
     showAuthSection();
+  }
+}
+
+// Show verification modal after signup
+function showVerificationModal(email: string): void {
+  // Set the email in the modal
+  const emailSpan = document.getElementById('verificationEmail');
+  if (emailSpan) {
+    emailSpan.textContent = email;
+  }
+  
+  // Show the modal
+  const modal = document.getElementById('verificationModal');
+  if (modal) {
+    modal.style.display = 'flex';
+    modal.classList.add('show');
+  }
+  
+  // Set up button event listeners
+  const gotItBtn = document.getElementById('verificationGotIt');
+  const goBackBtn = document.getElementById('verificationGoBack');
+  
+  if (gotItBtn) {
+    gotItBtn.onclick = () => {
+      // Hide modal and show login tab
+      hideVerificationModal();
+      showAuthTab('login');
+      showMessage('Please check your email to verify your account before logging in.', 'info');
+    };
+  }
+  
+  if (goBackBtn) {
+    goBackBtn.onclick = () => {
+      // Hide modal and stay on signup tab
+      hideVerificationModal();
+      showAuthTab('signup');
+    };
+  }
+}
+
+// Hide verification modal
+function hideVerificationModal(): void {
+  const modal = document.getElementById('verificationModal');
+  if (modal) {
+    modal.classList.remove('show');
+    setTimeout(() => {
+      modal.style.display = 'none';
+    }, 300);
   }
 }
 
