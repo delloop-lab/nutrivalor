@@ -493,15 +493,12 @@ function generateMealCardHTML(meal: Meal): string {
     
     if (meal.picture) {
         if (meal.picture.startsWith('data:image/')) {
-            // Base64 image data from admin form
             imagePath = meal.picture;
-            imageDisplayName = 'Uploaded Image';
+            imageDisplayName = meal.name; // Always use meal name
         } else if (meal.picture.startsWith('http')) {
-            // Full URL
             imagePath = meal.picture;
             imageDisplayName = meal.picture.split('/').pop() || meal.name;
         } else {
-            // Filename - try to match in images folder
             imagePath = `/images/${meal.picture}`;
             imageDisplayName = meal.picture;
         }
@@ -1139,35 +1136,30 @@ async function loadShoppingListItems(): Promise<any[]> {
 }
 
 // Load weekly meal plan from localStorage
+let weeklyMealPlanLoaded = false;
+
 function loadWeeklyMealPlan() {
-    // Removed excessive logging for performance
+    // Prevent multiple loads
+    if (weeklyMealPlanLoaded) {
+        return;
+    }
+    
     const saved = localStorage.getItem('nutrivalor_weekly_meal_plan');
     if (saved) {
         try {
             weeklyMealPlan = JSON.parse(saved);
-            console.log(`✅ Loaded weekly meal plan:`, weeklyMealPlan);
-            
-            // Log each day's contents for debugging
-            Object.keys(weeklyMealPlan).forEach(day => {
-                console.log(`📅 ${day}:`, weeklyMealPlan[day]);
-                Object.keys(weeklyMealPlan[day]).forEach(mealTime => {
-                    const meals = weeklyMealPlan[day][mealTime];
-                    if (meals && meals.length > 0) {
-                        console.log(`  🕐 ${mealTime}: ${meals.length} meals`, meals.map(m => `ID: ${m.id}, Name: ${m.name}`));
-                    }
-                });
-            });
+            console.log('✅ Loaded weekly meal plan from localStorage');
             
             updateWeeklyMealPlanDisplay();
-            console.log('📅 Loaded weekly meal plan from localStorage');
         } catch (error) {
             console.error('Error loading weekly meal plan:', error);
             weeklyMealPlan = {};
         }
     } else {
-        // Removed excessive logging for performance
         weeklyMealPlan = {};
     }
+    
+    weeklyMealPlanLoaded = true;
 }
 
 // Clear all meal plan data
@@ -1198,6 +1190,9 @@ export function clearAllMealData() {
     currentMeals = [];
     weeklyMealPlan = {};
     mealPlan = {};
+    
+    // Reset the loaded flag so it can be loaded again
+    weeklyMealPlanLoaded = false;
     
     // Clear localStorage
     localStorage.removeItem('nutrivalor_meals');

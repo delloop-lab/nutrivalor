@@ -22,9 +22,17 @@ export interface Storage {
 
 // Initialize Supabase or fall back to localStorage
 export function initializeSupabase(): void {
+  // Prevent multiple client instances
+  if (supabase) {
+    console.log('Supabase client already initialized, skipping...');
+    return;
+  }
+  
   try {
     supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    console.log('✅ Supabase client initialized successfully');
   } catch (error) {
+    console.error('❌ Error initializing Supabase client:', error);
     supabase = null;
   }
 }

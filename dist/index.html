@@ -6,7 +6,7 @@
     <title>NutriValor - Value your Nutrition</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Poppins:wght@600;700&display=swap" rel="stylesheet">
     <link rel="icon" type="image/x-icon" href="/assets/favico-C-B4lnju.ico">
-  <script type="module" crossorigin src="/assets/main-BI8YSnDa.js"></script>
+  <script type="module" crossorigin src="/assets/main-9IzfS2kG.js"></script>
   <link rel="stylesheet" crossorigin href="/assets/main-DvH7_iBz.css">
 </head>
 <body>
@@ -31,8 +31,8 @@
             <!-- Login Form -->
             <div id="loginForm" class="auth-form">
                 <form>
-                    <input type="email" name="email" placeholder="Email" required>
-                    <input type="password" name="password" placeholder="Password" required>
+                    <input type="email" name="email" placeholder="Email" required autocomplete="username">
+                    <input type="password" name="password" placeholder="Password" required autocomplete="current-password">
                     <button type="submit" class="auth-btn">Login</button>
                 </form>
                 <p class="auth-link">
@@ -43,9 +43,9 @@
             <!-- Sign Up Form -->
             <div id="signupForm" class="auth-form" style="display: none;">
                 <form>
-                    <input type="text" name="name" placeholder="Full Name" required>
-                    <input type="email" name="email" placeholder="Email" required>
-                    <input type="password" name="password" placeholder="Password" required>
+                    <input type="text" name="name" placeholder="Full Name" required autocomplete="name">
+                    <input type="email" name="email" placeholder="Email" required autocomplete="username">
+                    <input type="password" name="password" placeholder="Password" required autocomplete="new-password">
                     <button type="submit" class="auth-btn">Sign Up</button>
                 </form>
             </div>
@@ -53,7 +53,7 @@
             <!-- Forgot Password Form -->
             <div id="forgotForm" class="auth-form" style="display: none;">
                 <form>
-                    <input type="email" name="email" placeholder="Email" required>
+                    <input type="email" name="email" placeholder="Email" required autocomplete="username">
                     <button type="submit" class="auth-btn">Reset Password</button>
                 </form>
                 <p class="auth-link">

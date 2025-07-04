@@ -29,8 +29,8 @@
             <!-- Login Form -->
             <div id="loginForm" class="auth-form">
                 <form>
-                    <input type="email" name="email" placeholder="Email" required>
-                    <input type="password" name="password" placeholder="Password" required>
+                    <input type="email" name="email" placeholder="Email" required autocomplete="username">
+                    <input type="password" name="password" placeholder="Password" required autocomplete="current-password">
                     <button type="submit" class="auth-btn">Login</button>
                 </form>
                 <p class="auth-link">
@@ -41,9 +41,9 @@
             <!-- Sign Up Form -->
             <div id="signupForm" class="auth-form" style="display: none;">
                 <form>
-                    <input type="text" name="name" placeholder="Full Name" required>
-                    <input type="email" name="email" placeholder="Email" required>
-                    <input type="password" name="password" placeholder="Password" required>
+                    <input type="text" name="name" placeholder="Full Name" required autocomplete="name">
+                    <input type="email" name="email" placeholder="Email" required autocomplete="username">
+                    <input type="password" name="password" placeholder="Password" required autocomplete="new-password">
                     <button type="submit" class="auth-btn">Sign Up</button>
                 </form>
             </div>
@@ -51,7 +51,7 @@
             <!-- Forgot Password Form -->
             <div id="forgotForm" class="auth-form" style="display: none;">
                 <form>
-                    <input type="email" name="email" placeholder="Email" required>
+                    <input type="email" name="email" placeholder="Email" required autocomplete="username">
                     <button type="submit" class="auth-btn">Reset Password</button>
                 </form>
                 <p class="auth-link">
