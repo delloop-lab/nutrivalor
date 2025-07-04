@@ -960,9 +960,9 @@ export function setupAdminSection() {
     adminSection.innerHTML = `
         <div class="section-header">
             <h2>Admin Panel</h2>
-            <div style="text-align:center; margin-top: 0.25rem;">
-                <span style="color: #888; font-size: 1rem; font-weight: 500;">V0.8.001</span>
-            </div>
+        </div>
+        <div style="text-align:center; margin:-15px 0 20px 0;">
+            <span style="color: #22c55e; font-size: 1.1rem; font-weight: 500; display: block;">V0.8.001</span>
         </div>
         <hr>
         <div class="admin-grid">
