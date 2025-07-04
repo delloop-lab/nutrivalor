@@ -206,19 +206,19 @@ export async function deleteUserAccount(userId: string, email: string): Promise<
     }
     
     const confirmed = confirm(
-      `⚠️ WARNING: Are you absolutely sure you want to delete the account for ${email}?\n\nThis will permanently remove:\n- User authentication data\n- User profile\n- All associated data (foods, meals, weight entries, etc.)\n\nThis action CANNOT be undone!`
+      `⚠️ WARNING: Are you absolutely sure you want to delete the account for ${email}?\n\nThis will permanently remove:\n- User profile\n- All associated data (foods, meals, weight entries, etc.)\n\nThis action CANNOT be undone!`
     );
     
     if (!confirmed) return;
     
     // Double confirmation for safety
     const doubleConfirm = confirm(
-      `⚠️ FINAL WARNING: This will permanently delete ${email}'s account and ALL associated data.\n\nType 'DELETE' to confirm:`
+      `⚠️ FINAL WARNING: This will permanently delete ${email}'s data.\n\nClick OK to confirm.`
     );
     
     if (!doubleConfirm) return;
     
-    showMessage('Deleting user account and associated data...', 'info');
+    showMessage('Deleting user data...', 'info');
     
     try {
       // 1. Delete user's data from various tables
@@ -242,23 +242,15 @@ export async function deleteUserAccount(userId: string, email: string): Promise<
         supabase.from('user_roles').delete().eq('user_id', userId)
       ]);
       
-      // 2. Delete the user authentication record (requires admin privileges)
-      const { error } = await supabase.auth.admin.deleteUser(userId);
-      
-      if (error) {
-        console.error('Error deleting user authentication record:', error);
-        showMessage(`Error deleting user authentication: ${error.message}`, 'error');
-        return;
-      }
-      
-      showMessage(`User account ${email} has been deleted successfully`, 'success');
+      // 2. Notify admin that auth record requires Supabase dashboard access
+      showMessage(`User data for ${email} deleted. To remove the auth account completely, use the Supabase dashboard.`, 'success');
       
       // Refresh user list
       await loadUserList();
       
     } catch (error) {
-      console.error('Error deleting user account:', error);
-      showMessage(`Error deleting user account: ${(error as Error).message}`, 'error');
+      console.error('Error deleting user data:', error);
+      showMessage(`Error deleting user data: ${(error as Error).message}`, 'error');
     }
     
   } catch (error) {
