@@ -942,7 +942,6 @@ declare global {
 // window.closeIngredientModal = closeIngredientModal;
 // window.removeIngredient = removeIngredient;
 window.selectMealForEdit = selectMealForEdit;
-window.addIngredientRow = addIngredientRow;
 window.removeIngredientRow = removeIngredientRow;
 window.cancelMealEdit = cancelMealEdit;
 window.deleteMealFromEdit = deleteMealFromEdit;
@@ -1142,6 +1141,6 @@ async function createMeal(mealData: any) {
     }
 }
 
-
+// window.addIngredientRow = addIngredientRow;
 
  
