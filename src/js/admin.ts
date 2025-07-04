@@ -942,7 +942,7 @@ declare global {
 // window.closeIngredientModal = closeIngredientModal;
 // window.removeIngredient = removeIngredient;
 window.selectMealForEdit = selectMealForEdit;
-window.removeIngredientRow = removeIngredientRow;
+// window.removeIngredientRow = removeIngredientRow;
 window.cancelMealEdit = cancelMealEdit;
 window.deleteMealFromEdit = deleteMealFromEdit;
 window.selectFoodForEdit = selectFoodForEdit;
