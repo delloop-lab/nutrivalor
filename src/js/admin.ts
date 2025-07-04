@@ -128,6 +128,16 @@ function generateRoleButtons(user: any): string {
     >
       ${user.role === 'admin' || user.role === 'super_admin' ? 'Revoke Admin' : 'Make Admin'}
     </button>
+    
+    <!-- Delete User Button (Testing Only) -->
+    <button 
+      onclick="deleteUserAccount('${user.id}', '${user.email}')" 
+      class="role-btn revoke"
+      style="background: linear-gradient(135deg, #991b1b 0%, #ef4444 100%); margin-left: 10px;"
+      title="⚠️ Testing Only: Delete User Account"
+    >
+      Delete User
+    </button>
   `;
 }
 
@@ -182,6 +192,78 @@ export async function toggleUserRole(userId: string, email: string, currentRole:
   } catch (error) {
     console.error('Error toggling user role:', error);
     showMessage('Error updating user role', 'error');
+  }
+}
+
+// Delete user account (for testing purposes only)
+export async function deleteUserAccount(userId: string, email: string): Promise<void> {
+  try {
+    // Check if current user is super admin
+    const isSuperAdmin = await isCurrentUserSuperAdmin();
+    if (!isSuperAdmin) {
+      showMessage('Only Super Admins can delete user accounts', 'error');
+      return;
+    }
+    
+    const confirmed = confirm(
+      `⚠️ WARNING: Are you absolutely sure you want to delete the account for ${email}?\n\nThis will permanently remove:\n- User authentication data\n- User profile\n- All associated data (foods, meals, weight entries, etc.)\n\nThis action CANNOT be undone!`
+    );
+    
+    if (!confirmed) return;
+    
+    // Double confirmation for safety
+    const doubleConfirm = confirm(
+      `⚠️ FINAL WARNING: This will permanently delete ${email}'s account and ALL associated data.\n\nType 'DELETE' to confirm:`
+    );
+    
+    if (!doubleConfirm) return;
+    
+    showMessage('Deleting user account and associated data...', 'info');
+    
+    try {
+      // 1. Delete user's data from various tables
+      await Promise.all([
+        // Delete user profile
+        supabase.from('user_profiles').delete().eq('user_id', userId),
+        
+        // Delete user's foods
+        supabase.from('foods').delete().eq('user_id', userId),
+        
+        // Delete user's meals
+        supabase.from('meals').delete().eq('user_id', userId),
+        
+        // Delete user's shopping list
+        supabase.from('shopping_list').delete().eq('user_id', userId),
+        
+        // Delete user's weight entries
+        supabase.from('weight_entries').delete().eq('user_id', userId),
+        
+        // Delete user's role
+        supabase.from('user_roles').delete().eq('user_id', userId)
+      ]);
+      
+      // 2. Delete the user authentication record (requires admin privileges)
+      const { error } = await supabase.auth.admin.deleteUser(userId);
+      
+      if (error) {
+        console.error('Error deleting user authentication record:', error);
+        showMessage(`Error deleting user authentication: ${error.message}`, 'error');
+        return;
+      }
+      
+      showMessage(`User account ${email} has been deleted successfully`, 'success');
+      
+      // Refresh user list
+      await loadUserList();
+      
+    } catch (error) {
+      console.error('Error deleting user account:', error);
+      showMessage(`Error deleting user account: ${(error as Error).message}`, 'error');
+    }
+    
+  } catch (error) {
+    console.error('Error in deleteUserAccount:', error);
+    showMessage(`Error: ${(error as Error).message}`, 'error');
   }
 }
 
@@ -934,6 +1016,7 @@ declare global {
     deleteFoodFromEdit: () => Promise<void>;
     toggleUserRole: (userId: string, email: string, currentRole: string) => Promise<void>;
     refreshUserList: () => Promise<void>;
+    deleteUserAccount: (userId: string, email: string) => Promise<void>;
   }
 }
 
@@ -950,6 +1033,7 @@ window.cancelFoodEdit = cancelFoodEdit;
 window.deleteFoodFromEdit = deleteFoodFromEdit;
 window.toggleUserRole = toggleUserRole;
 window.refreshUserList = refreshUserList;
+window.deleteUserAccount = deleteUserAccount;
 
 // ... existing code ...
 
