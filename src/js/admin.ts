@@ -961,9 +961,6 @@ export function setupAdminSection() {
         <div class="section-header">
             <h2>Admin Panel</h2>
         </div>
-        <div style="text-align:center; margin:-15px 0 20px 0;">
-            <span style="color: #22c55e; font-size: 1.1rem; font-weight: 500; display: block;">V0.8.001</span>
-        </div>
         <hr>
         <div class="admin-grid">
             <!-- Create Food Column -->
@@ -1042,6 +1039,11 @@ export function setupAdminSection() {
                     <button onclick="openEditMealModal()" class="secondary-btn">Edit Meal</button>
                 </div>
             </div>
+        </div>
+
+        <!-- Admin Footer with Version -->
+        <div style="margin-top: 50px; text-align: center; padding: 15px; background-color: #f8fafc; border-radius: 8px;">
+            <p style="margin: 0; color: #22c55e; font-weight: 600; font-size: 1.2rem;">NutriValor Version: V0.8.001</p>
         </div>
     `;
 
