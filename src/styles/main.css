@@ -678,6 +678,21 @@ button {
     box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 }
 
+.serving-unit {
+    font-size: 14px;
+    font-weight: 600;
+    color: #64748b;
+    background: rgba(100, 116, 139, 0.1);
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: 1px solid rgba(100, 116, 139, 0.2);
+    min-width: 35px;
+    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
 .add-btn {
     flex: 1;
     height: 44px;

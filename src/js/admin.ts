@@ -24,6 +24,7 @@ export async function initializeAdmin(): Promise<void> {
     await loadUserList();
     
     // Load food management
+    console.log('🔍 loadFoodManagement called');
     await loadFoodManagement();
     
   } catch (error) {
@@ -464,6 +465,7 @@ async function handleAddFood(event: Event): Promise<void> {
       fat: parseFloat(formData.get('foodFat') as string) || 0,
       protein: parseFloat(formData.get('foodProtein') as string) || 0,
       category: formData.get('foodCategory') as string || 'OTHER',
+      default_serving_unit: formData.get('foodServingUnit') as string || 'g',
       created_by: createdBy,
       user_id: null  // Global food - accessible to all users
     };

@@ -15,20 +15,42 @@ let currentMealImageFile: File | null = null;
 // ===========================================
 
 export function openEditFoodModal() {
+    console.log('🔥 openEditFoodModal called!');
+    
     const modal = document.getElementById('editFoodModal');
-    if (!modal) return;
+    console.log('🔍 Modal element found:', !!modal);
+    
+    if (!modal) {
+        console.error('❌ Modal element not found!');
+        return;
+    }
     
     // Load all foods into dropdown
+    console.log('📋 Loading foods dropdown...');
     loadFoodsDropdown();
     
     // Reset form
     const form = document.getElementById('editFoodForm') as HTMLFormElement;
+    console.log('📝 Form element found:', !!form);
+    
     if (form) {
         form.style.display = 'none';
         form.reset();
     }
     
+    console.log('👁️ Setting modal display to block...');
     modal.style.display = 'block';
+    modal.style.visibility = 'visible';  // Force visibility
+    modal.style.opacity = '1';           // Force opacity
+    modal.style.zIndex = '9999';
+    modal.style.position = 'fixed';
+    modal.style.top = '0';
+    modal.style.left = '0';
+    modal.style.width = '100%';
+    modal.style.height = '100%';
+    modal.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+    
+    console.log('✅ Modal should now be visible with forced visibility and opacity');
 }
 
 export function closeEditFoodModal() {
@@ -95,6 +117,7 @@ export async function loadFoodForEdit(foodId: string) {
         (document.getElementById('editFoodName') as HTMLInputElement).value = food.name || '';
         (document.getElementById('editFoodBrand') as HTMLInputElement).value = food.brand || '';
         (document.getElementById('editFoodCategory') as HTMLSelectElement).value = food.category || '';
+        (document.getElementById('editFoodServingUnit') as HTMLSelectElement).value = food.default_serving_unit || 'g';
         (document.getElementById('editFoodCarbs') as HTMLInputElement).value = food.carbs?.toString() || '0';
         (document.getElementById('editFoodFat') as HTMLInputElement).value = food.fat?.toString() || '0';
         (document.getElementById('editFoodProtein') as HTMLInputElement).value = food.protein?.toString() || '0';
@@ -164,6 +187,7 @@ export async function saveEditedFood(event: Event) {
             name: (document.getElementById('editFoodName') as HTMLInputElement).value.trim(),
             brand: (document.getElementById('editFoodBrand') as HTMLInputElement).value.trim() || null,
             category: (document.getElementById('editFoodCategory') as HTMLSelectElement).value,
+            default_serving_unit: (document.getElementById('editFoodServingUnit') as HTMLSelectElement).value,
             carbs: parseFloat((document.getElementById('editFoodCarbs') as HTMLInputElement).value) || 0,
             fat: parseFloat((document.getElementById('editFoodFat') as HTMLInputElement).value) || 0,
             protein: parseFloat((document.getElementById('editFoodProtein') as HTMLInputElement).value) || 0,
@@ -225,20 +249,42 @@ export async function deleteEditedFood() {
 // ===========================================
 
 export function openEditMealModal() {
+    console.log('🔥 openEditMealModal called!');
+    
     const modal = document.getElementById('editMealModal');
-    if (!modal) return;
+    console.log('🔍 Meal modal element found:', !!modal);
+    
+    if (!modal) {
+        console.error('❌ Meal modal element not found!');
+        return;
+    }
     
     // Load all meals into dropdown
+    console.log('📋 Loading meals dropdown...');
     loadMealsDropdown();
     
     // Reset form
     const form = document.getElementById('editMealForm') as HTMLFormElement;
+    console.log('📝 Meal form element found:', !!form);
+    
     if (form) {
         form.style.display = 'none';
         form.reset();
     }
     
+    console.log('👁️ Setting meal modal display to block...');
     modal.style.display = 'block';
+    modal.style.visibility = 'visible';  // Force visibility
+    modal.style.opacity = '1';           // Force opacity
+    modal.style.zIndex = '9999';
+    modal.style.position = 'fixed';
+    modal.style.top = '0';
+    modal.style.left = '0';
+    modal.style.width = '100%';
+    modal.style.height = '100%';
+    modal.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+    
+    console.log('✅ Meal modal should now be visible with forced visibility and opacity');
 }
 
 export function closeEditMealModal() {

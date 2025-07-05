@@ -74,6 +74,9 @@ async function initializeApp(): Promise<void> {
     // Initialize shopping list
     await initializeShoppingList();
     
+    // Initialize simple edit system
+    await initializeSimpleEditSystem();
+    
     // Setup modal event listeners
     setupModalEventListeners();
     
@@ -418,9 +421,44 @@ async function initializeSimpleEditSystem(): Promise<void> {
   try {
     console.log('🔧 Ensuring simple edit system is available...');
     
-    // The simple-edit.ts is already imported in main.ts, so the functions should be available
-    // Let's just verify they exist and set up any needed event listeners
+    // Add a small delay to ensure all modules are loaded
+    await new Promise(resolve => setTimeout(resolve, 100));
     
+    console.log('🔍 Checking window.openEditFoodModal:', typeof window.openEditFoodModal);
+    console.log('🔍 Checking window.openEditMealModal:', typeof window.openEditMealModal);
+    
+    // If functions are not available, try to import and attach them manually
+    if (typeof window.openEditFoodModal !== 'function' || typeof window.openEditMealModal !== 'function') {
+      console.log('⚠️ Simple edit functions not available, attempting manual import...');
+      
+      try {
+        const simpleEditModule = await import('./js/simple-edit');
+        
+        // Manually attach functions to window
+        window.openEditFoodModal = simpleEditModule.openEditFoodModal;
+        window.closeEditFoodModal = simpleEditModule.closeEditFoodModal;
+        window.loadFoodForEdit = simpleEditModule.loadFoodForEdit;
+        window.saveEditedFood = simpleEditModule.saveEditedFood;
+        window.deleteEditedFood = simpleEditModule.deleteEditedFood;
+        window.previewFoodImage = simpleEditModule.previewFoodImage;
+        window.removeFoodImage = simpleEditModule.removeFoodImage;
+        window.openEditMealModal = simpleEditModule.openEditMealModal;
+        window.closeEditMealModal = simpleEditModule.closeEditMealModal;
+        window.loadMealForEdit = simpleEditModule.loadMealForEdit;
+        window.saveEditedMeal = simpleEditModule.saveEditedMeal;
+        window.deleteEditedMeal = simpleEditModule.deleteEditedMeal;
+        window.previewMealImage = simpleEditModule.previewMealImage;
+        window.removeMealImage = simpleEditModule.removeMealImage;
+        window.addIngredientToMeal = simpleEditModule.addIngredientToMeal;
+        window.removeIngredientFromMeal = simpleEditModule.removeIngredientFromMeal;
+        
+        console.log('✅ Simple edit functions manually attached to window');
+      } catch (importError) {
+        console.error('❌ Failed to import simple-edit module:', importError);
+      }
+    }
+    
+    // Verify functions are now available
     if (typeof window.openEditFoodModal === 'function' && typeof window.openEditMealModal === 'function') {
       console.log('✅ Simple edit functions are available');
       
@@ -441,7 +479,8 @@ async function initializeSimpleEditSystem(): Promise<void> {
       }
       
     } else {
-      console.error('❌ Simple edit functions not available');
+      console.error('❌ Simple edit functions still not available after manual import');
+      console.log('Available window functions:', Object.keys(window).filter(key => key.includes('Edit')));
     }
     
   } catch (error) {

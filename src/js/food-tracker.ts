@@ -177,6 +177,7 @@ export function displayFoods(foods: any[]): void {
         </div>
         <div class="food-actions">
           <input type="number" class="quantity-input" value="1" min="1" id="qty-${food.id}">
+          <span class="serving-unit">${food.default_serving_unit || 'g'}</span>
           <button class="${buttonClass}" onclick="${buttonAction}">
             ${buttonText}
           </button>
