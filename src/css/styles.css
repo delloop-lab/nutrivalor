@@ -333,3 +333,27 @@
   font-family: inherit !important;
   text-align: center;
 } 
+
+.app-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  background: #6c63ff;
+  padding: 1rem 2rem;
+  color: #fff;
+  font-size: 1rem;
+  border-top: 1px solid #e5e5e5;
+}
+
+.footer-version {
+  color: #fff;
+  font-weight: 600;
+  margin-right: 2rem;
+  letter-spacing: 1px;
+  font-size: 1rem;
+}
+
+.app-footer p {
+  margin: 0;
+  color: #fff;
+} 
