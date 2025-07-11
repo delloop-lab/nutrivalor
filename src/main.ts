@@ -8,14 +8,76 @@ import { initializeMacroCalculator } from './js/macro-calculator';
 import { initializeMeals, reloadMeals } from './js/meals';
 import { initializeShoppingList } from './js/shopping-list';
 import './js/simple-edit';
+import { demoBaconAndEggs } from './js/demo-meal-calc';
+import { renderKitchenCalculator } from './js/main';
+
+// Declare global window functions
+declare global {
+  interface Window {
+    openEditFoodModal: () => Promise<void>;
+    closeEditFoodModal: () => void;
+    loadFoodForEdit: (foodId: string) => Promise<void>;
+    saveEditedFood: (event: Event) => Promise<void>;
+    deleteEditedFood: () => Promise<void>;
+    previewFoodImage: (input: HTMLInputElement) => void;
+    removeFoodImage: () => void;
+    openEditMealModal: () => Promise<void>;
+    closeEditMealModal: () => void;
+    loadMealForEdit: (mealId: string) => Promise<void>;
+    saveEditedMeal: (event: Event) => Promise<void>;
+    deleteEditedMeal: () => Promise<void>;
+    previewMealImage: (input: HTMLInputElement) => void;
+    removeMealImage: () => void;
+    addIngredientToMeal: () => Promise<void>;
+    removeIngredientFromMeal: (index: number) => void;
+    addNewIngredientRow: () => Promise<void>;
+    removeIngredientRow: (button: HTMLButtonElement) => void;
+    updateIngredientFood: (index: number, foodId: string) => Promise<void>;
+    updateIngredientQuantity: (index: number, value: string) => Promise<void>;
+    updateIngredientNutrient: (index: number, nutrient: string, value: string) => void;
+    updateIngredientInstructions: (index: number, instructions: string) => void;
+    updateServingUnitField: (unitId: string, field: 'name' | 'grams' | 'default', value: string | number | boolean) => void;
+    showSection: (sectionId: string) => void;
+  }
+}
 
 // At the top of the file, after imports, add splash screen logic
 // Delay splash screen until after app initialization to ensure logo is available
-document.addEventListener('DOMContentLoaded', () => {
-  setTimeout(showSplashScreen, 100);
+
+document.addEventListener('DOMContentLoaded', async () => {
+  // DEBUG: Step through initial DOM state before anything else
+  // DEBUG: Show loading screen state
+  // DEBUG: Capture what's visible in top left area
+  // Log all elements that might be visible in the top left
+  const allElements = document.querySelectorAll('*');
+  const topLeftElements = [];
+  
+  for (const element of allElements) {
+    const style = window.getComputedStyle(element);
+    if (style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0') {
+      const rect = element.getBoundingClientRect();
+      if (rect.top < 100 && rect.left < 100) {
+        topLeftElements.push({
+          tagName: element.tagName,
+          id: element.id,
+          className: element.className,
+          textContent: element.textContent?.substring(0, 50),
+          rect: { top: rect.top, left: rect.left, width: rect.width, height: rect.height }
+        });
+      }
+    }
+  }
+  
+  // Removed excessive logging for performance
 });
 
 function showSplashScreen() {
+  // Hide the loading screen first
+  const loadingScreen = document.getElementById('loadingScreen');
+  if (loadingScreen) {
+    loadingScreen.style.display = 'none';
+  }
+  
   const splash = document.createElement('div');
   splash.id = 'splashScreen';
   splash.style.position = 'fixed';
@@ -47,58 +109,45 @@ function showSplashScreen() {
 
 // Initialize the application
 async function initializeApp(): Promise<void> {
-  // Removed excessive logging for performance
-  
   try {
-    // Initialize Supabase connection
+    // 0. Step: Before splash screen is shown
+    // 1. Show splash screen
+    showSplashScreen();
+
+    // 2. Initialize Supabase connection
     initializeSupabase();
-    
-    // Initialize authentication first (it handles the UI state)
+    // 3. Initialize authentication first (it handles the UI state)
     await initializeAuth();
-    
-    // Initialize database
+    // 4. Initialize database
     await initializeDatabase();
-    
-    // Initialize food tracker
+    // 5. Initialize food tracker
     await initializeFoodTracker();
-    
-    // Initialize weight tracker
+    // 6. Initialize weight tracker
     await initializeWeightTracker();
-    
-    // Initialize macro calculator
+    // 7. Initialize macro calculator
     await initializeMacroCalculator();
-    
-    // Initialize meals
+    // 8. Initialize meals
     await initializeMeals();
-    
-    // Initialize shopping list
+    // 9. Initialize shopping list
     await initializeShoppingList();
-    
-    // Initialize simple edit system
+    // 10. Initialize simple edit system
     await initializeSimpleEditSystem();
-    
-    // Setup modal event listeners
+    // 11. Setup modal event listeners
     setupModalEventListeners();
-    
-    // Setup profile event listeners
+    // 12. Setup profile event listeners
     setupProfileEventListeners();
-    
-    // Initialize avatar state
+    // 13. Initialize avatar state
     initializeAvatarState();
-    
-    // Make functions globally available
+    // 14. Make functions globally available
     setupGlobalFunctions();
-    
-    // Removed excessive logging for performance
-    
+
   } catch (error) {
-    console.error('❌ Error initializing application:', error);
+    // Removed excessive logging for performance
   }
 }
 
 // Profile management functions
 async function updateProfile(): Promise<void> {
-  console.log('👤 Updating profile...');
   
   try {
     const profileName = (document.getElementById('profileName') as HTMLInputElement)?.value;
@@ -149,12 +198,9 @@ async function updateProfile(): Promise<void> {
       }
     }
     
-    // Show success message
-    showMessage('Profile updated successfully!', 'success');
-    
-    console.log('✅ Profile saved to Supabase:', savedProfile);
+    // Profile saved successfully
   } catch (error) {
-    console.error('❌ Error saving profile:', error);
+    // Removed excessive logging for performance
     showMessage('Error saving profile. Please try again.', 'error');
   }
 }
@@ -197,13 +243,12 @@ async function loadProfile(): Promise<void> {
         if (removeAvatarBtn) removeAvatarBtn.style.display = 'inline-flex';
       }
       
-      showMessage('Profile loaded successfully!', 'success');
-      // Removed excessive logging for performance
+      // Profile loaded successfully
     } else {
-      showMessage('No saved profile found', 'info');
+      // No saved profile found
     }
   } catch (error) {
-    console.error('❌ Error loading profile:', error);
+    // Removed excessive logging for performance
     showMessage('Error loading profile', 'error');
   }
 }
@@ -231,7 +276,7 @@ function removeAvatar(): void {
     headerAvatarPlaceholder.style.display = 'flex';
   }
   
-  console.log('🗑️ Avatar removed');
+  // Avatar removed
 }
 
 // Helper function to show messages
@@ -242,8 +287,17 @@ export function showMessage(message: string, type: 'success' | 'error' | 'info' 
     toast.className = `message-toast ${type}`;
     toast.style.display = 'block';
     
+    // Force reflow to ensure animation works
+    void toast.offsetWidth;
+    
+    // Add show class to trigger the animation
+    toast.classList.add('show');
+    
     setTimeout(() => {
-      toast.style.display = 'none';
+      toast.classList.remove('show');
+      setTimeout(() => {
+        toast.style.display = 'none';
+      }, 300);
     }, 3000);
   }
 }
@@ -282,6 +336,48 @@ function setupGlobalFunctions(): void {
   (window as any).removeEditMealPicture = removeEditMealPicture;
   (window as any).setupMealPictureEventListeners = setupMealPictureEventListeners;
   
+  // CSV Import/Export functions
+  (window as any).exportFoodsToCSV = async () => {
+    try {
+      const { exportFoodsToCSV } = await import('./js/admin');
+      await exportFoodsToCSV();
+    } catch (error) {
+      // Removed excessive logging for performance
+      showMessage('Error loading CSV export function', 'error');
+    }
+  };
+  
+  (window as any).importFoodsFromCSV = async () => {
+    try {
+      const { importFoodsFromCSV } = await import('./js/admin');
+      await importFoodsFromCSV();
+    } catch (error) {
+      // Removed excessive logging for performance
+      showMessage('Error loading CSV import function', 'error');
+    }
+  };
+
+  // Backup Management functions
+  (window as any).createFoodsBackup = async () => {
+    try {
+      const { createFoodsBackup } = await import('./js/admin');
+      await createFoodsBackup();
+    } catch (error) {
+      // Removed excessive logging for performance
+      showMessage('Error loading backup function', 'error');
+    }
+  };
+  
+  (window as any).restoreFromBackup = async () => {
+    try {
+      const { restoreFromBackup } = await import('./js/admin');
+      await restoreFromBackup();
+    } catch (error) {
+      // Removed excessive logging for performance
+      showMessage('Error loading restore function', 'error');
+    }
+  };
+  
   // Admin functions that need to be available globally
   // Note: Commented out - these functions don't exist in current admin.ts
   // (window as any).updateAllMealsNutrition = async () => {
@@ -289,7 +385,7 @@ function setupGlobalFunctions(): void {
   //     const { updateAllMealsNutrition } = await import('./js/admin');
   //     await updateAllMealsNutrition();
   //   } catch (error) {
-  //     console.error('❌ Error loading admin function:', error);
+  //     // Removed excessive logging for performance
   //     showMessage('Error loading admin function', 'error');
   //   }
   // };
@@ -299,7 +395,7 @@ function setupGlobalFunctions(): void {
   //     const { updateMealAttributions } = await import('./js/admin');
   //     await updateMealAttributions();
   //   } catch (error) {
-  //     console.error('❌ Error loading admin function:', error);
+  //     // Removed excessive logging for performance
   //     showMessage('Error loading admin function', 'error');
   //   }
   // };
@@ -312,7 +408,6 @@ function showUploadModal(): void {
   const modal = document.getElementById('uploadModal');
   if (modal) {
     modal.style.display = 'flex';
-    console.log('📤 Upload modal opened');
   }
 }
 
@@ -320,7 +415,6 @@ function closeUploadModal(): void {
   const modal = document.getElementById('uploadModal');
   if (modal) {
     modal.style.display = 'none';
-    console.log('📤 Upload modal closed');
   }
 }
 
@@ -328,7 +422,6 @@ function showMealUploadModal(): void {
   const modal = document.getElementById('mealUploadModal');
   if (modal) {
     modal.style.display = 'flex';
-    console.log('🥗 Meal upload modal opened');
   }
 }
 
@@ -336,7 +429,6 @@ function closeMealUploadModal(): void {
   const modal = document.getElementById('mealUploadModal');
   if (modal) {
     modal.style.display = 'none';
-    console.log('🥗 Meal upload modal closed');
   }
 }
 
@@ -367,24 +459,30 @@ function showSection(sectionId: string): void {
   // Handle specific section actions
   if (sectionId === 'shopping-list') {
     // Update shopping list display when switching to it
-    if ((window as any).updateShoppingListDisplay) {
-      (window as any).updateShoppingListDisplay();
+    try {
+      // Import and call the shopping list loading function
+      import('./js/shopping-list').then(module => {
+        module.loadAndDisplayShoppingList();
+      });
+    } catch (error) {
+      // Removed excessive logging for performance
     }
   } else if (sectionId === 'admin') {
     // Initialize admin panel when switching to it
     loadAdminSection();
+  } else if (sectionId === 'calculator') {
+    // Render the kitchen calculator UI when switching to calculator section
+    if (typeof renderKitchenCalculator === 'function') {
+      renderKitchenCalculator();
+    }
   }
-
-  console.log(`📍 Switched to section: ${sectionId}`);
 }
 
 function exportData(): void {
-  console.log('💾 Export data');
   // Implementation will be added
 }
 
 function clearAllData(): void {
-  console.log('🗑️ Clear all data');
   // Implementation will be added
 }
 
@@ -393,23 +491,19 @@ function clearAllData(): void {
 
 // Shopping list functions
 function clearShoppingList(): void {
-  console.log('🗑️ Clear shopping list');
   // Implementation will be added
 }
 
 // Admin section loading
 async function loadAdminSection(): Promise<void> {
   try {
-    console.log('👑 Loading admin section...');
-    
     // Dynamically import and initialize admin module
     const { initializeAdmin } = await import('./js/admin');
     
     await initializeAdmin();
     
-    console.log('✅ Admin section loaded');
   } catch (error) {
-    console.warn('⚠️ Admin initialization had errors, continuing with simple edit system:', error);
+    // Removed excessive logging for performance
   }
   
   // Ensure simple edit system is working
@@ -419,17 +513,11 @@ async function loadAdminSection(): Promise<void> {
 // Initialize simple edit system to make sure it works regardless of admin.ts issues
 async function initializeSimpleEditSystem(): Promise<void> {
   try {
-    console.log('🔧 Ensuring simple edit system is available...');
-    
     // Add a small delay to ensure all modules are loaded
     await new Promise(resolve => setTimeout(resolve, 100));
     
-    console.log('🔍 Checking window.openEditFoodModal:', typeof window.openEditFoodModal);
-    console.log('🔍 Checking window.openEditMealModal:', typeof window.openEditMealModal);
-    
     // If functions are not available, try to import and attach them manually
     if (typeof window.openEditFoodModal !== 'function' || typeof window.openEditMealModal !== 'function') {
-      console.log('⚠️ Simple edit functions not available, attempting manual import...');
       
       try {
         const simpleEditModule = await import('./js/simple-edit');
@@ -451,40 +539,28 @@ async function initializeSimpleEditSystem(): Promise<void> {
         window.removeMealImage = simpleEditModule.removeMealImage;
         window.addIngredientToMeal = simpleEditModule.addIngredientToMeal;
         window.removeIngredientFromMeal = simpleEditModule.removeIngredientFromMeal;
+        window.addNewIngredientRow = simpleEditModule.addNewIngredient;
+        window.removeIngredientRow = simpleEditModule.removeIngredientRow;
+        window.updateIngredientFood = simpleEditModule.updateIngredientFood;
+        window.updateIngredientQuantity = simpleEditModule.updateIngredientQuantity;
+        window.updateIngredientNutrient = simpleEditModule.updateIngredientNutrient;
+        window.updateIngredientInstructions = simpleEditModule.updateIngredientInstructions;
         
-        console.log('✅ Simple edit functions manually attached to window');
+        // Simple edit functions manually attached to window
       } catch (importError) {
-        console.error('❌ Failed to import simple-edit module:', importError);
+        // Removed excessive logging for performance
       }
     }
     
     // Verify functions are now available
     if (typeof window.openEditFoodModal === 'function' && typeof window.openEditMealModal === 'function') {
-      console.log('✅ Simple edit functions are available');
-      
-      // Set up Edit Food and Edit Meal buttons if they exist
-      const editFoodBtn = document.querySelector('[onclick*="openEditFoodModal"]');
-      const editMealBtn = document.querySelector('[onclick*="openEditMealModal"]');
-      
-      if (editFoodBtn) {
-        console.log('✅ Edit Food button found');
-      } else {
-        console.log('⚠️ Edit Food button not found in DOM');
-      }
-      
-      if (editMealBtn) {
-        console.log('✅ Edit Meal button found');
-      } else {
-        console.log('⚠️ Edit Meal button not found in DOM');
-      }
-      
+      // Simple edit functions are available
     } else {
-      console.error('❌ Simple edit functions still not available after manual import');
-      console.log('Available window functions:', Object.keys(window).filter(key => key.includes('Edit')));
+      // Removed excessive logging for performance
     }
     
   } catch (error) {
-    console.error('❌ Error initializing simple edit system:', error);
+    // Removed excessive logging for performance
   }
 }
 
@@ -494,7 +570,9 @@ function setupModalEventListeners(): void {
   document.addEventListener('click', (e) => {
     const target = e.target as HTMLElement;
     if (target.classList.contains('modal')) {
-      closeModal(target as HTMLElement);
+      const modal = target as HTMLElement;
+      modal.style.display = 'none';
+      modal.classList.remove('visible');
     }
   });
   
@@ -504,17 +582,18 @@ function setupModalEventListeners(): void {
       closeAllModals();
     }
   });
-  
-      // Removed excessive logging for performance
 }
 
 function closeModal(modal: HTMLElement): void {
   modal.style.display = 'none';
+  modal.classList.remove('visible');
 }
 
 function closeAllModals(): void {
   document.querySelectorAll('.modal').forEach(modal => {
-    (modal as HTMLElement).style.display = 'none';
+    const modalElement = modal as HTMLElement;
+    modalElement.style.display = 'none';
+    modalElement.classList.remove('visible');
   });
 }
 
@@ -679,28 +758,16 @@ function setupMealPictureEventListeners(): void {
 }
 
 function handleMealPictureUpload(event: Event): void {
-  console.log('🖼️ Main meal picture upload triggered');
   const input = event.target as HTMLInputElement;
   const file = input.files?.[0];
   
-  console.log('📁 Selected file:', file?.name, file?.type);
-  
   if (file && file.type.startsWith('image/')) {
-    console.log('✅ Valid image file detected');
     const reader = new FileReader();
     reader.onload = (e) => {
-      console.log('📖 File read complete');
       const preview = document.getElementById('mealPicturePreview') as HTMLImageElement;
       const placeholder = document.getElementById('mealPicturePlaceholder') as HTMLElement;
       const removeBtn = document.getElementById('removeMealPictureBtn') as HTMLButtonElement;
       const hiddenInput = document.getElementById('mealPicture') as HTMLInputElement;
-      
-      console.log('🔍 Elements found:', {
-        preview: !!preview,
-        placeholder: !!placeholder,
-        removeBtn: !!removeBtn,
-        hiddenInput: !!hiddenInput
-      });
       
       if (preview && placeholder && e.target?.result) {
         preview.src = e.target.result as string;
@@ -708,14 +775,13 @@ function handleMealPictureUpload(event: Event): void {
         placeholder.style.display = 'none';
         if (removeBtn) removeBtn.style.display = 'block';
         if (hiddenInput) hiddenInput.value = e.target.result as string;
-        console.log('✅ Image preview updated successfully');
       } else {
-        console.error('❌ Missing required elements for image preview');
+        // Removed excessive logging for performance
       }
     };
     reader.readAsDataURL(file);
   } else {
-    console.error('❌ Invalid file type:', file?.type);
+    // Removed excessive logging for performance
     showMessage('Please select a valid image file', 'error');
   }
 }

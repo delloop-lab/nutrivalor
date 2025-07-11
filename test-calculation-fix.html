@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Nutrition Calculation Test</title>
+</head>
+<body>
+    <h1>Nutrition Calculation Test</h1>
+    <div id="results"></div>
+    
+    <script>
+        // Test the calculation logic that should match loadUserMeals()
+        
+        // Sample Omelette data (similar to what's in database)
+        const omeletteMeal = {
+            name: "Omelette",
+            ingredients: [
+                {
+                    food_id: "baa0d3ac-5b34-4f0b-8c03-6582c0e684cc", // eggs
+                    quantity: 2,
+                    serving_unit: "EACH"
+                },
+                {
+                    food_id: "some-butter-id", // butter  
+                    quantity: 15,
+                    serving_unit: "g"
+                }
+            ]
+        };
+        
+        // Sample foods data (nutrients per 100g)
+        const foods = [
+            {
+                id: "baa0d3ac-5b34-4f0b-8c03-6582c0e684cc",
+                name: "Eggs",
+                carbs: 1.1,
+                fat: 9.5,
+                protein: 13.0
+            },
+            {
+                id: "some-butter-id",
+                name: "Butter",
+                carbs: 0.1,
+                fat: 81.0,
+                protein: 0.9
+            }
+        ];
+        
+        // Sample serving units
+        const servingUnits = [
+            {
+                food_id: "baa0d3ac-5b34-4f0b-8c03-6582c0e684cc",
+                unit_name: "EACH",
+                grams_per_unit: 50
+            }
+        ];
+        
+        // Test calculation logic (same as in loadUserMeals)
+        function testCalculation() {
+            let totalCarbs = 0, totalFat = 0, totalProtein = 0;
+            const results = [];
+            
+            omeletteMeal.ingredients.forEach(ing => {
+                const food = foods.find(f => f.id === ing.food_id);
+                if (!food) return;
+                
+                const qty = ing.quantity ?? 1;
+                const unit = (ing.serving_unit || '').toUpperCase();
+                let carbs, fat, protein;
+                
+                if (unit === 'EACH') {
+                    // For EACH units, food values are already per unit, just multiply by quantity
+                    carbs = +(food.carbs * qty).toFixed(1);
+                    fat = +(food.fat * qty).toFixed(1);
+                    protein = +(food.protein * qty).toFixed(1);
+                    
+                    results.push(`✅ ${food.name}: ${qty} ${unit} (values per unit) = C:${carbs}g F:${fat}g P:${protein}g`);
+                } else {
+                    // For all other units (including SLICE), use grams calculation
+                    const totalGrams = unit === 'g' ? qty : 0;
+                    const factor = totalGrams / 100;
+                    carbs = +(food.carbs * factor).toFixed(1);
+                    fat = +(food.fat * factor).toFixed(1);
+                    protein = +(food.protein * factor).toFixed(1);
+                    
+                    results.push(`✅ ${food.name}: ${qty} ${unit} = ${totalGrams}g → C:${carbs}g F:${fat}g P:${protein}g`);
+                }
+                
+                totalCarbs += carbs;
+                totalFat += fat;
+                totalProtein += protein;
+            });
+            
+            results.push(`<br><strong>TOTALS: Carbs: ${totalCarbs.toFixed(1)}g, Fat: ${totalFat.toFixed(1)}g, Protein: ${totalProtein.toFixed(1)}g</strong>`);
+            
+            return results;
+        }
+        
+        // Run test and display results
+        const results = testCalculation();
+        document.getElementById('results').innerHTML = results.join('<br>');
+        
+        console.log('Expected Omelette totals:', 'Carbs: 16.2g, Fat: 148.7g, Protein: 58g');
+        console.log('Test calculation results:', results);
+    </script>
+</body>
+</html> 

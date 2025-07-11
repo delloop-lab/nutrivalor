@@ -66,13 +66,11 @@ async function populateFoodSelect(selectElement: HTMLSelectElement) {
             populateSearchResults(foods, selectElement, 'add_to_meal');
         }
     } catch (error) {
-        console.error('Error fetching foods:', error);
         showMessage('Error loading foods', 'error');
     }
 }
 
 export async function openIngredientModal(operation: ModalOperation, idx: number | null = null, foodId: string | null = null) {
-    console.log(`Opening modal for operation: ${operation}`);
     ingredientState.currentOperation = operation;
 
     const modal = document.getElementById('ingredientModal');
@@ -82,7 +80,6 @@ export async function openIngredientModal(operation: ModalOperation, idx: number
     const mealDetailsSection = document.getElementById('mealDetailsSection');
 
     if (!modal || !modalTitle || !foodSection || !mealSection) {
-        console.error('Required modal elements not found');
         return;
     }
 
@@ -111,7 +108,6 @@ export async function openIngredientModal(operation: ModalOperation, idx: number
                         populateFoodForm(food);
                     }
                 } catch (error) {
-                    console.error('Error fetching food:', error);
                     showMessage('Error loading food details', 'error');
                 }
             }
@@ -140,7 +136,6 @@ export async function openIngredientModal(operation: ModalOperation, idx: number
                     }
                 }
             } catch (error) {
-                console.error('Error loading meals:', error);
                 showMessage('Error loading meals', 'error');
             }
 
@@ -163,14 +158,12 @@ export async function openIngredientModal(operation: ModalOperation, idx: number
                         populateForm(mealWithIngredients, operation);
                     }
                 } catch (error) {
-                    console.error('Error fetching meal:', error);
                     showMessage('Error loading meal details', 'error');
                 }
             }
             break;
 
         default:
-            console.error('Unsupported operation:', operation);
             return;
     }
 
@@ -217,7 +210,6 @@ function populateSearchResults(items: any[], container: HTMLElement, operation: 
                             populateForm(meal, operation);
                         }
                     } catch (error) {
-                        console.error('Error fetching meal:', error);
                         showMessage('Error loading meal details', 'error');
                     }
                 } else {
@@ -345,7 +337,6 @@ function populateFoodForm(food: any) {
 }
 
 export function closeIngredientModal() {
-    console.log('[Modal] Closing ingredient modal');
     const modal = document.getElementById('ingredientModal');
     if (modal) {
         modal.style.display = 'none';
@@ -464,7 +455,6 @@ export function setupIngredientModalEventListeners() {
                         populateSearchResults(meals, mealSelect.parentElement as HTMLElement, 'edit_meal');
                     }
                 } catch (error) {
-                    console.error('Error loading meals:', error);
                     showMessage('Error loading meals', 'error');
                 }
             }
@@ -581,7 +571,6 @@ async function handleIngredientSubmit(event: Event) {
             showMessage('Food saved successfully!', 'success');
         }
     } catch (error) {
-        console.error('Error saving:', error);
         showMessage(error.message || 'Error saving', 'error');
     }
 }
@@ -612,7 +601,6 @@ export async function removeIngredient(ingredientId: number) {
 
         showMessage('Ingredient removed successfully', 'success');
     } catch (error) {
-        console.error('Error removing ingredient:', error);
         showMessage('Failed to remove ingredient', 'error');
     }
 }
@@ -662,7 +650,6 @@ export async function editIngredient(ingredientId: number) {
 
         showMessage('Ingredient updated successfully', 'success');
     } catch (error) {
-        console.error('Error updating ingredient:', error);
         showMessage('Failed to update ingredient', 'error');
     }
 }
@@ -675,11 +662,10 @@ declare global {
         removeIngredient: (ingredientId: number) => void;
         editIngredient: (ingredientId: number) => void;
         currentCategorySelect: HTMLSelectElement | null;
-        updateIngredientFood: (index: number, foodId: string) => void;
-        updateIngredientQuantity: (index: number, value: string) => void;
+        updateIngredientFood: (index: number, foodId: string) => Promise<void>;
+        updateIngredientQuantity: (index: number, value: string) => Promise<void>;
         updateIngredientNutrient: (index: number, nutrient: string, value: string) => void;
         updateIngredientInstructions: (index: number, instructions: string) => void;
-        addNewIngredient: () => void;
     }
 }
 
@@ -691,25 +677,41 @@ window.editIngredient = editIngredient;
 // Add selectedFoodId to track the current food being edited
 let selectedFoodId: string | null = null;
 
+// Helper function to calculate nutrient values based on unit type
+function calculateNutrient(food: any, nutrient: 'carbs' | 'fat' | 'protein', quantity: number): number {
+    // Get serving unit for this food
+    const servingUnit = food.serving_units?.find((u: any) => u.is_default) || { unit_name: 'g', grams_per_unit: 1 };
+
+    // Calculate based on unit type
+    if (servingUnit.unit_name.toUpperCase() === 'EACH') {
+        // For EACH units, food values are already per unit
+        return Math.round((food[nutrient] * quantity) * 100) / 100;
+    } else {
+        // For weight-based units, calculate using grams
+        const totalGrams = servingUnit.grams_per_unit * quantity;
+        const multiplier = totalGrams / 100;
+        return Math.round((food[nutrient] * multiplier) * 100) / 100;
+    }
+}
+
 // Update ingredient food selection
-window.updateIngredientFood = (index: number, foodId: string) => {
+window.updateIngredientFood = async (index: number, foodId: string) => {
     const food = allFoods.find(f => f.id === foodId);
     if (food && ingredientState.ingredients[index]) {
         ingredientState.ingredients[index] = {
             ...ingredientState.ingredients[index],
             food_id: food.id,
             food_name: food.name,
-            // Update nutrients based on quantity
-            carbs: food.carbs * (ingredientState.ingredients[index].quantity || 1),
-            fat: food.fat * (ingredientState.ingredients[index].quantity || 1),
-            protein: food.protein * (ingredientState.ingredients[index].quantity || 1)
+            carbs: calculateNutrient(food, 'carbs', ingredientState.ingredients[index].quantity || 1),
+            fat: calculateNutrient(food, 'fat', ingredientState.ingredients[index].quantity || 1),
+            protein: calculateNutrient(food, 'protein', ingredientState.ingredients[index].quantity || 1)
         };
-        updateIngredientDisplay(index);
+        await updateIngredientDisplay(index);
     }
 };
 
 // Update ingredient quantity
-window.updateIngredientQuantity = (index: number, value: string) => {
+window.updateIngredientQuantity = async (index: number, value: string) => {
     const quantity = parseFloat(value) || 0;
     if (ingredientState.ingredients[index]) {
         const food = allFoods.find(f => f.id === ingredientState.ingredients[index].food_id);
@@ -717,11 +719,11 @@ window.updateIngredientQuantity = (index: number, value: string) => {
             ingredientState.ingredients[index] = {
                 ...ingredientState.ingredients[index],
                 quantity,
-                carbs: food.carbs * quantity,
-                fat: food.fat * quantity,
-                protein: food.protein * quantity
+                carbs: calculateNutrient(food, 'carbs', quantity),
+                fat: calculateNutrient(food, 'fat', quantity),
+                protein: calculateNutrient(food, 'protein', quantity)
             };
-            updateIngredientDisplay(index);
+            await updateIngredientDisplay(index);
         }
     }
 };
@@ -747,28 +749,10 @@ window.updateIngredientInstructions = (index: number, instructions: string) => {
     }
 };
 
-// Add new ingredient
-window.addNewIngredient = () => {
-    const newIngredient: Ingredient = {
-        food_id: '',
-        food_name: '',
-        quantity: 1,
-        instructions: '',
-        carbs: 0,
-        fat: 0,
-        protein: 0
-    };
-    ingredientState.ingredients.push(newIngredient);
-    // Refresh the form with current meal data
-    const item = {
-        id: ingredientState.currentMealId,
-        ingredients: ingredientState.ingredients
-    };
-    populateForm(item, 'edit_meal');
-};
+
 
 // Helper function to update a single ingredient's display
-function updateIngredientDisplay(index: number) {
+async function updateIngredientDisplay(index: number) {
     const row = document.querySelector(`.ingredient-row[data-index="${index}"]`);
     if (row) {
         const carbsInput = row.querySelector('.nutrient-field input[onchange*="carbs"]') as HTMLInputElement;
@@ -832,7 +816,6 @@ async function saveMeal() {
         // Show success message
         showMessage('Meal saved successfully!', 'success');
     } catch (error) {
-        console.error('Error saving meal:', error);
         showMessage(error.message || 'Error saving meal', 'error');
     }
 } 

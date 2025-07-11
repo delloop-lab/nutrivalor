@@ -3,6 +3,8 @@ import {
   removeFromShoppingList,
   updateShoppingListQuantity
 } from './database';
+import { allFoods } from './food-tracker';
+import { loadFoodsFromDatabase } from './database';
 
 // Store shopping list items for quick lookup
 let currentShoppingList: any[] = [];
@@ -15,12 +17,10 @@ export async function initializeShoppingList(): Promise<void> {
   // Set up event listener for cross-module refresh requests
   window.addEventListener('shoppingListNeedsRefresh', async (event: Event) => {
     const customEvent = event as CustomEvent;
-    console.log('📡 Received shopping list refresh event from:', customEvent.detail?.source);
     try {
       await loadAndDisplayShoppingList();
-      console.log('✅ Shopping list refreshed via event listener');
     } catch (error) {
-      console.error('❌ Error refreshing shopping list via event:', error);
+      // console.error('❌ Error refreshing shopping list via event:', error);
     }
   });
   
@@ -29,78 +29,53 @@ export async function initializeShoppingList(): Promise<void> {
 
 // Load and display shopping list
 export async function loadAndDisplayShoppingList(): Promise<void> {
-  try {
-      // Removed excessive logging for performance
-    const items = await loadShoppingListFromDatabase();
-    
-    // Removed excessive logging for performance
-    
-    // Update local cache
-    currentShoppingList = items || [];
-    
-    // Removed excessive logging for performance
-    
-    // Removed excessive logging for performance
-    displayShoppingList(currentShoppingList);
-    
-    // Refresh meal plan checkboxes to reflect current shopping list state
-    try {
-      if (typeof (window as any).refreshMealShoppingCheckboxes === 'function') {
-        await (window as any).refreshMealShoppingCheckboxes();
-        // Removed excessive logging for performance
-      }
-    } catch (error) {
-      console.warn('⚠️ Could not refresh meal plan checkboxes:', error);
-    }
-    
-  } catch (error) {
-    console.error('❌ Error loading shopping list:', error);
-    // Clear local cache on error
-    currentShoppingList = [];
-    displayShoppingList([]);
-  }
+  const items = await loadShoppingListFromDatabase();
+  if (!items) return;
+  
+  // Store items for print functionality and other access
+  currentShoppingList = items;
+  displayShoppingList(items);
 }
 
 // Consolidate duplicate items by combining quantities
 function consolidateItems(items: any[]): any[] {
   const consolidated: Record<string, any> = {};
   
-  items.forEach(item => {
-    // Create a more specific key that includes name and brand for better matching
-    const brand = item.brand || 'Any';
-    const category = item.category || 'General';
-    const key = `${item.name.toLowerCase().trim()}_${brand.toLowerCase().trim()}_${category.toLowerCase().trim()}`;
+  items.forEach((item, index) => {
     
-    console.log(`🔍 Processing item: ${item.name}, Brand: ${brand}, Category: ${category}, Key: ${key}`);
-    console.log(`🔍 Item quantity RAW: value="${item.quantity}", type="${typeof item.quantity}", parsed=${parseInt(item.quantity)}`);
+    // Create a more specific key that includes name, brand, category and unit for better matching
+    // Skip invalid items
+    if (!item || !item.name) {
+      return;
+    }
+
+    const brand = (item.brand || 'Any').toString();
+    const category = (item.category || 'General').toString();
+    const unit = (item.unit || 'EACH').toString();
+    const key = `${item.name.toString().toLowerCase().trim()}_${brand.toLowerCase().trim()}_${category.toLowerCase().trim()}_${unit.toLowerCase().trim()}`;
     
     if (consolidated[key]) {
       // Item already exists, add quantities together
       const oldQty = consolidated[key].quantity;
       const addQty = parseInt(item.quantity) || 1;
       consolidated[key].quantity = (parseInt(oldQty) || 1) + addQty;
-      console.log(`🔄 Consolidated ${item.name}: ${oldQty} + ${addQty} = ${consolidated[key].quantity} total quantity`);
     } else {
       // New item, add to consolidated list
       const quantity = parseInt(item.quantity) || 1;
       consolidated[key] = { ...item, quantity: quantity };
-      console.log(`➕ Added new item: ${item.name} with quantity ${quantity} (original: ${item.quantity}, type: ${typeof item.quantity})`);
     }
   });
   
-  console.log(`📦 Consolidation complete: ${Object.keys(consolidated).length} unique items`);
-  return Object.values(consolidated);
+  const result = Object.values(consolidated);
+  return result;
 }
 
 // Display shopping list items
-function displayShoppingList(items: any[]): void {
+export function displayShoppingList(items: any[]): void {
   const shoppingItemsContainer = document.getElementById('shoppingItems');
   const shoppingTotalsContainer = document.getElementById('shoppingTotals');
   
-  // Removed excessive logging for performance
-  
   if (!shoppingItemsContainer) {
-    console.warn('❌ Shopping items container not found');
     return;
   }
 
@@ -111,7 +86,6 @@ function displayShoppingList(items: any[]): void {
   }
 
   if (!items || items.length === 0) {
-    // Removed excessive logging for performance
     shoppingItemsContainer.innerHTML = '<p class="empty-state">Your shopping list is empty. Add items from the Food Tracker!</p>';
     // Ensure totals are hidden for empty state
     if (shoppingTotalsContainer) {
@@ -120,11 +94,26 @@ function displayShoppingList(items: any[]): void {
     return;
   }
 
-  console.log('🛒 Processing', items.length, 'items for display');
+  // Enrich items with food data from allFoods
+  const enrichedItems = items.map(item => {
+    if (item.name) return item; // Already enriched
+    const food = allFoods.find(f => f.id === item.food_id);
+    if (food) {
+      return {
+        ...item,
+        name: food.name,
+        brand: food.brand,
+        category: food.category,
+        carbs: food.carbs,
+        fat: food.fat,
+        protein: food.protein
+      };
+    }
+    return item;
+  });
 
   // Consolidate duplicate items first
-  const consolidatedItems = consolidateItems(items);
-  console.log('🛒 After consolidation:', consolidatedItems.length, 'unique items');
+  const consolidatedItems = consolidateItems(enrichedItems);
 
   // Group consolidated items by category
   const itemsByCategory = consolidatedItems.reduce((groups: Record<string, any[]>, item: any) => {
@@ -135,8 +124,6 @@ function displayShoppingList(items: any[]): void {
     groups[category].push(item);
     return groups;
   }, {} as Record<string, any[]>);
-
-  console.log('🛒 Items grouped by category:', Object.keys(itemsByCategory));
 
   // Sort categories with SUNDRIES at the end
   const categoryOrder = Object.keys(itemsByCategory).sort((a, b) => {
@@ -157,8 +144,7 @@ function displayShoppingList(items: any[]): void {
           ${categoryItems.map(item => `
             <div class="shopping-item" data-id="${item.id}">
               <div class="item-info">
-                <h4>${item.name}</h4>
-                <div class="quantity-display">Qty: ${item.quantity}</div>
+                <h4>${item.name || 'Unknown Food'}</h4>
                 ${item.brand && item.brand !== 'SUNDRIES' ? `<div class="brand-info">Brand: ${item.brand}</div>` : ''}
                 <div class="nutrition-info">
                   <span>Carbs: ${formatNutrition(item.carbs)}g</span>
@@ -172,6 +158,7 @@ function displayShoppingList(items: any[]): void {
                   <button onclick="updateItemQuantity('${item.id}', ${item.quantity - 1})" class="qty-btn" ${item.quantity <= 1 ? 'disabled' : ''}>-</button>
                   <span class="quantity">${item.quantity}</span>
                   <button onclick="updateItemQuantity('${item.id}', ${item.quantity + 1})" class="qty-btn">+</button>
+                  <span class="unit-label">${item.unit || 'EACH'}</span>
                 </div>
                 <button onclick="removeShoppingItem('${item.id}')" class="remove-btn">Remove</button>
               </div>
@@ -182,48 +169,71 @@ function displayShoppingList(items: any[]): void {
     `;
   }).join('');
 
-  // Calculate and display totals ONLY if we have items
+  // Calculate and display totals
   const totals = calculateTotals(consolidatedItems);
-  console.log('🛒 Calculated totals:', totals);
   
-  if (shoppingTotalsContainer && totals.totalItems > 0) {
+  if (shoppingTotalsContainer) {
     shoppingTotalsContainer.style.display = 'block';
-    shoppingTotalsContainer.innerHTML = `
-      <div class="totals-header">
-        <h3>Shopping List Totals</h3>
-        <span class="total-items">${totals.totalItems} items</span>
-      </div>
-      <div class="totals-grid">
-        <div class="total-item">
-          <span class="label">Total Carbs:</span>
-          <span class="value">${totals.totalCarbs.toFixed(1)}g</span>
+    if (totals.totalItems > 0) {
+      const totalsHTML = `
+        <div class="totals-header">
+          <h3>Shopping List Totals</h3>
         </div>
-        <div class="total-item">
-          <span class="label">Total Fat:</span>
-          <span class="value">${totals.totalFat.toFixed(1)}g</span>
+        <div class="totals-grid">
+          <div class="total-item">
+            <span class="label">Total Carbs:</span>
+            <span class="value">${totals.totalCarbs.toFixed(1)}g</span>
+          </div>
+          <div class="total-item">
+            <span class="label">Total Fat:</span>
+            <span class="value">${totals.totalFat.toFixed(1)}g</span>
+          </div>
+          <div class="total-item">
+            <span class="label">Total Protein:</span>
+            <span class="value">${totals.totalProtein.toFixed(1)}g</span>
+          </div>
         </div>
-        <div class="total-item">
-          <span class="label">Total Protein:</span>
-          <span class="value">${totals.totalProtein.toFixed(1)}g</span>
+      `;
+      shoppingTotalsContainer.innerHTML = totalsHTML;
+    } else {
+      const emptyTotalsHTML = `
+        <div class="totals-header">
+          <h3>Shopping List Totals</h3>
         </div>
-      </div>
-    `;
+        <div class="totals-grid">
+          <div class="total-item">
+            <span class="label">Total Carbs:</span>
+            <span class="value">0.0g</span>
+          </div>
+          <div class="total-item">
+            <span class="label">Total Fat:</span>
+            <span class="value">0.0g</span>
+          </div>
+          <div class="total-item">
+            <span class="label">Total Protein:</span>
+            <span class="value">0.0g</span>
+          </div>
+        </div>
+      `;
+      shoppingTotalsContainer.innerHTML = emptyTotalsHTML;
+    }
   }
 }
 
 // Calculate totals for shopping list
 function calculateTotals(items: any[]): any {
   const totals = {
-    totalItems: items.reduce((sum, item) => sum + item.quantity, 0),
+    totalItems: items.reduce((sum, item) => sum + (item.quantity || 0), 0),
     totalCarbs: 0,
     totalFat: 0,
     totalProtein: 0
   };
 
   items.forEach(item => {
-    totals.totalCarbs += (parseFloat(item.carbs) || 0) * item.quantity;
-    totals.totalFat += (parseFloat(item.fat) || 0) * item.quantity;
-    totals.totalProtein += (parseFloat(item.protein) || 0) * item.quantity;
+    const quantity = item.quantity || 0;
+    totals.totalCarbs += (parseFloat(item.carbs) || 0) * quantity;
+    totals.totalFat += (parseFloat(item.fat) || 0) * quantity;
+    totals.totalProtein += (parseFloat(item.protein) || 0) * quantity;
   });
 
   return totals;
@@ -246,15 +256,15 @@ export async function removeShoppingItem(id: string): Promise<void> {
     try {
       if (typeof (window as any).refreshMealShoppingCheckboxes === 'function') {
         await (window as any).refreshMealShoppingCheckboxes();
-        console.log('✅ Meal plan checkboxes refreshed after item removal');
+        // console.log('✅ Meal plan checkboxes refreshed after item removal');
       }
     } catch (error) {
-      console.warn('⚠️ Could not refresh meal plan checkboxes:', error);
+      // console.warn('⚠️ Could not refresh meal plan checkboxes:', error);
     }
     
     showMessage('Item removed from shopping list', 'success');
   } catch (error) {
-    console.error('Error removing item:', error);
+    // console.error('Error removing item:', error);
     showMessage('Error removing item', 'error');
   }
 }
@@ -274,48 +284,48 @@ export async function updateItemQuantity(id: string, newQuantity: number): Promi
     // No need to refresh checkboxes for quantity changes - only for add/remove
     
   } catch (error) {
-    console.error('Error updating quantity:', error);
+    // console.error('Error updating quantity:', error);
     showMessage('Error updating quantity', 'error');
   }
 }
 
 // Clear all items from shopping list
 export async function clearAllShoppingItems(skipDatabase: boolean = false): Promise<void> {
-  console.log('🧹 SHOPPING-LIST: Starting shopping list clear...');
+  // console.log('🧹 SHOPPING-LIST: Starting shopping list clear...');
   
   try {
     // Clear from database only if not skipped (to avoid double-clearing)
     if (!skipDatabase) {
       const { clearShoppingListFromDatabase } = await import('./database');
       await clearShoppingListFromDatabase();
-      console.log('✅ Database cleared successfully');
+      // console.log('✅ Database cleared successfully');
     } else {
-      console.log('⏭️ Database clear skipped (already done by food-tracker)');
+      // console.log('⏭️ Database clear skipped (already done by food-tracker)');
     }
     
     // Clear local array
     currentShoppingList = [];
-    console.log('✅ Local shopping list array cleared');
+    // console.log('✅ Local shopping list array cleared');
     
     // Update display
     displayShoppingList([]);
-    console.log('✅ Display updated');
+    // console.log('✅ Display updated');
     
     // Refresh meal plan checkboxes to reflect changes
     try {
       if (typeof (window as any).refreshMealShoppingCheckboxes === 'function') {
         await (window as any).refreshMealShoppingCheckboxes();
-        console.log('✅ Meal plan checkboxes refreshed after clearing list');
+        // console.log('✅ Meal plan checkboxes refreshed after clearing list');
       }
     } catch (error) {
-      console.warn('⚠️ Could not refresh meal plan checkboxes:', error);
+      // console.warn('⚠️ Could not refresh meal plan checkboxes:', error);
     }
     
     if (!skipDatabase) {
       showMessage('Shopping list cleared', 'success');
     }
   } catch (error) {
-    console.error('❌ Error clearing shopping list:', error);
+    // console.error('❌ Error clearing shopping list:', error);
     if (!skipDatabase) {
       showMessage('Error clearing shopping list', 'error');
     }
@@ -375,23 +385,66 @@ declare global {
 // Note: Don't expose handleClearShoppingList here since food-tracker.ts handles the main clear button
 
 // Print shopping list
-export function printShoppingList(): void {
-  console.log('🖨️ Printing shopping list...');
+export async function printShoppingList(): Promise<void> {
+  // console.log('🖨️ PRINT DEBUG: Starting print process...');
+  // console.log('🖨️ PRINT DEBUG: currentShoppingList length:', currentShoppingList?.length);
+  // console.log('🖨️ PRINT DEBUG: currentShoppingList sample:', currentShoppingList?.[0]);
+  // console.log('🖨️ PRINT DEBUG: allFoods length:', allFoods?.length);
+  // console.log('🖨️ PRINT DEBUG: allFoods sample:', allFoods?.[0]);
+  
+  // Ensure allFoods is loaded before printing
+  if (!allFoods || allFoods.length === 0) {
+    // console.log('🖨️ PRINT DEBUG: allFoods is empty, loading from database...');
+    const foods = await loadFoodsFromDatabase();
+    // console.log('🖨️ PRINT DEBUG: Loaded foods from database:', foods?.length, 'items');
+    // console.log('🖨️ PRINT DEBUG: Sample loaded food:', foods?.[0]);
+    if (foods && foods.length > 0) {
+      allFoods.length = 0;
+      allFoods.push(...foods);
+      // console.log('🖨️ PRINT DEBUG: allFoods populated with', allFoods.length, 'items');
+      
+      // Also re-enrich currentShoppingList with the loaded foods
+      currentShoppingList = currentShoppingList.map(item => {
+        if (item.name) return item; // Already enriched
+        const food = allFoods.find(f => f.id === item.food_id);
+        if (food) {
+          // console.log('🖨️ PRINT DEBUG: Enriching item with food:', food.name);
+          return {
+            ...item,
+            name: food.name,
+            brand: food.brand,
+            category: food.category,
+            carbs: food.carbs,
+            fat: food.fat,
+            protein: food.protein
+          };
+        }
+        // console.log('🖨️ PRINT DEBUG: No food found for item:', item);
+        return item;
+      });
+      // console.log('🖨️ PRINT DEBUG: currentShoppingList after enrichment:', currentShoppingList);
+    } else {
+      // console.error('🖨️ PRINT DEBUG: Failed to load foods from database');
+    }
+  }
   
   if (!currentShoppingList || currentShoppingList.length === 0) {
+    // console.log('🖨️ PRINT DEBUG: Shopping list is empty');
     showMessage('Shopping list is empty - nothing to print!', 'error');
     return;
   }
   
-  // Create a new window for printing
   const printWindow = window.open('', '_blank');
   if (!printWindow) {
+    // console.error('🖨️ PRINT DEBUG: Failed to open print window');
     showMessage('Unable to open print window. Please check your browser settings.', 'error');
     return;
   }
   
-  // Generate print content
+  // console.log('🖨️ PRINT DEBUG: Generating print content...');
   const printContent = generatePrintContent();
+  // console.log('🖨️ PRINT DEBUG: Generated content length:', printContent.length);
+  // console.log('🖨️ PRINT DEBUG: Content preview:', printContent.substring(0, 500));
   
   printWindow.document.write(`
     <!DOCTYPE html>
@@ -417,24 +470,59 @@ export function printShoppingList(): void {
     </body>
     </html>
   `);
-  
   printWindow.document.close();
   printWindow.focus();
   printWindow.print();
-  
   showMessage('Shopping list opened for printing!', 'success');
 }
 
 // Generate print content
 function generatePrintContent(): string {
+  // console.log('🖨️ CONTENT DEBUG: Starting generatePrintContent...');
+  // console.log('🖨️ CONTENT DEBUG: currentShoppingList:', currentShoppingList);
+  
+  // Enrich shopping list items with food data from allFoods for printing
+  const enrichedItems = currentShoppingList.map((item, index) => {
+    // console.log(`🖨️ CONTENT DEBUG: Processing item ${index}:`, item);
+    if (item.name) {
+      // console.log(`🖨️ CONTENT DEBUG: Item ${index} already has name:`, item.name);
+      return item; // Already enriched
+    }
+    const food = allFoods.find(f => f.id === item.food_id);
+    // console.log(`🖨️ CONTENT DEBUG: Found food for item ${index}:`, food);
+    if (food) {
+      const enriched = {
+        ...item,
+        name: food.name,
+        brand: food.brand,
+        category: food.category,
+        carbs: food.carbs,
+        fat: food.fat,
+        protein: food.protein
+      };
+      // console.log(`🖨️ CONTENT DEBUG: Enriched item ${index}:`, enriched);
+      return enriched;
+    }
+    // console.log(`🖨️ CONTENT DEBUG: No food found for item ${index}, using as-is`);
+    return item;
+  });
+  
+  // console.log('🖨️ CONTENT DEBUG: Enriched items:', enrichedItems);
+  
   // Consolidate items for printing
-  const consolidatedItems = consolidateItems(currentShoppingList);
+  // console.log('🖨️ CONTENT DEBUG: Starting consolidation...');
+  const consolidatedItems = consolidateItems(enrichedItems);
+  // console.log('🖨️ CONTENT DEBUG: Consolidated items:', consolidatedItems);
+  
   const totals = calculateTotals(consolidatedItems);
+  // console.log('🖨️ CONTENT DEBUG: Calculated totals:', totals);
+  
   const date = new Date().toLocaleDateString();
   
-  // Group consolidated items by category
+  // Group consolidated items by category using direct item fields
   const itemsByCategory = consolidatedItems.reduce((groups: Record<string, any[]>, item: any) => {
     const category = item.category || item.brand || 'General';
+    // console.log('🖨️ CONTENT DEBUG: Item category:', category, 'for item:', item);
     if (!groups[category]) {
       groups[category] = [];
     }
@@ -442,12 +530,16 @@ function generatePrintContent(): string {
     return groups;
   }, {} as Record<string, any[]>);
   
+  // console.log('🖨️ CONTENT DEBUG: Items by category:', itemsByCategory);
+  
   // Sort categories with SUNDRIES at the end
   const categoryOrder = Object.keys(itemsByCategory).sort((a, b) => {
     if (a === 'SUNDRIES') return 1;
     if (b === 'SUNDRIES') return -1;
     return a.localeCompare(b);
   });
+  
+  // console.log('🖨️ CONTENT DEBUG: Category order:', categoryOrder);
   
   let content = `
     <h1>NutriValor Shopping List</h1>
@@ -458,23 +550,34 @@ function generatePrintContent(): string {
   categoryOrder.forEach(category => {
     const items = itemsByCategory[category];
     const isSundries = category === 'SUNDRIES';
+    // console.log(`🖨️ CONTENT DEBUG: Processing category ${category} with ${items.length} items`);
     
     content += `
       <div class="category">
         <h2>${category}${isSundries ? ' (From Meal Plans)' : ''}</h2>
     `;
     
-    items.forEach(item => {
+    items.forEach((item, itemIndex) => {
+      // console.log(`🖨️ CONTENT DEBUG: Processing item ${itemIndex} in category ${category}:`, item);
+      const foodName = item.name || 'Unknown Food';
+      const carbs = item.carbs;
+      const fat = item.fat;
+      const protein = item.protein;
+      const brand = item.brand;
+      
+      // console.log(`🖨️ CONTENT DEBUG: Item ${itemIndex} values - name: ${foodName}, carbs: ${carbs}, fat: ${fat}, protein: ${protein}, brand: ${brand}`);
+      
+      const unitDisplay = item.unit ? (item.quantity > 1 && item.unit.toUpperCase() === 'SLICE' ? 'SLICES' : item.unit) : '';
       content += `
         <div class="item">
           <div class="checkbox">☐</div>
           <div class="item-content">
-            <div class="item-name">${item.name} (Qty: ${item.quantity})</div>
+            <div class="item-name">${foodName} (Qty: ${item.quantity} ${unitDisplay})</div>
             <div class="item-details">
-              Carbs: ${formatNutrition(item.carbs)}g | 
-              Fat: ${formatNutrition(item.fat)}g | 
-              Protein: ${formatNutrition(item.protein)}g
-              ${item.brand && item.brand !== 'SUNDRIES' ? ` | Brand: ${item.brand}` : ''}
+              Carbs: ${formatNutrition(carbs)}g | 
+              Fat: ${formatNutrition(fat)}g | 
+              Protein: ${formatNutrition(protein)}g
+              ${brand && brand !== 'SUNDRIES' ? ` | Brand: ${brand}` : ''}
             </div>
           </div>
         </div>
@@ -493,12 +596,13 @@ function generatePrintContent(): string {
     </div>
   `;
   
+  // console.log('🖨️ CONTENT DEBUG: Final content generated, length:', content.length);
   return content;
 }
 
 // Handle clear shopping list with confirmation
 export function handleClearShoppingList(): void {
-  console.log('🗑️ Clear shopping list requested...');
+  // console.log('🗑️ Clear shopping list requested...');
   
   if (!currentShoppingList || currentShoppingList.length === 0) {
     showMessage('Shopping list is already empty!', 'info');
@@ -510,7 +614,7 @@ export function handleClearShoppingList(): void {
   if (confirmed) {
     clearAllShoppingItems();
   } else {
-    console.log('🚫 Clear shopping list cancelled by user');
+    // console.log('🚫 Clear shopping list cancelled by user');
   }
 }
  

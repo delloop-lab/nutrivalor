@@ -14,10 +14,15 @@ let idealWeight: string = '';
 let targetDate: string = '';
 let weightChart: any = null;
 let isClearingData: boolean = false;
+let isInitialized: boolean = false;
 
 // Initialize weight tracker functionality
 export async function initializeWeightTracker(): Promise<void> {
-  // Removed excessive logging for performance
+  // Prevent multiple initializations
+  if (isInitialized) {
+    return;
+  }
+  
   await loadWeightData();
   setupWeightChart();
   setupEventListeners();
@@ -26,6 +31,8 @@ export async function initializeWeightTracker(): Promise<void> {
   updateProgress();
   setTodayAsDefault();
   checkForMissingProfileData();
+  
+  isInitialized = true;
 }
 
 // Setup listeners to check when fields are filled and hide tip if complete
@@ -181,8 +188,22 @@ function createWeightChart(): void {
 
   // Destroy existing chart if it exists
   if (weightChart) {
-    weightChart.destroy();
+    try {
+      weightChart.destroy();
+    } catch (error) {
+      // Remove all console.log, console.warn, and console.error statements
+    }
     weightChart = null;
+  }
+
+  // Also destroy any existing Chart.js instances on this canvas
+  try {
+    const existingChart = (window as any).Chart.getChart(ctx);
+    if (existingChart) {
+      existingChart.destroy();
+    }
+  } catch (error) {
+    // Remove all console.log, console.warn, and console.error statements
   }
 
   const chartCtx = ctx.getContext('2d');
@@ -723,6 +744,7 @@ export async function refreshWeightTracker(): Promise<void> {
   
   // Recheck if tip should be shown/hidden after refresh
   setTimeout(() => {
+    const idealWeightInput = document.getElementById('idealWeight') as HTMLInputElement;
     if (!idealWeightInput?.value) {
       showPersistentProfileTip('💡 Tip: Fill out your ideal weight in Settings → Profile to auto-populate here');
     } else {

@@ -8,27 +8,37 @@ import {
   addToShoppingList as addToShoppingListDB,
   loadShoppingListFromDatabase,
   clearAllFoodsForUser,
-  clearShoppingListFromDatabase
+  clearShoppingListFromDatabase,
+  loadServingUnitsForFood,
+  getDefaultServingUnit,
+  calculateMacrosForServing
 } from './database';
 import { getCurrentAuthUser } from './auth';
+import { showMessage } from '../main';
 
 // Food Tracker Module
 export async function initializeFoodTracker(): Promise<void> {
-  // Removed excessive logging for performance
   setupFoodTrackerEventListeners();
   await loadAndDisplayFoods();
   await loadShoppingListData();
   displayLastUploadDate();
 }
 
-function setupFoodTrackerEventListeners(): void {
+export function setupFoodTrackerEventListeners(): void {
   // Add event listeners for food tracker functionality
   const foodFileInput = document.getElementById('foodFileInput') as HTMLInputElement;
   if (foodFileInput) {
     foodFileInput.addEventListener('change', handleFoodFileUpload);
-    // Removed excessive logging for performance
   } else {
-    console.warn('❌ Food file input not found');
+    // Removed excessive logging for performance
+  }
+
+  // Add event listener for Add Food form
+  const addFoodForm = document.getElementById('addFoodForm') as HTMLFormElement;
+  if (addFoodForm) {
+    addFoodForm.addEventListener('submit', handleAddFoodForm);
+  } else {
+    // Removed excessive logging for performance
   }
 
   // Add other event listeners as needed
@@ -59,7 +69,7 @@ async function loadShoppingListData(): Promise<void> {
     // Removed excessive logging for performance
     updateShoppingListDisplay();
   } catch (error) {
-    console.error('❌ Error loading shopping list:', error);
+    // Removed excessive logging for performance
     shoppingList = []; // Initialize as empty array on error
   }
 }
@@ -78,7 +88,7 @@ export async function loadAndDisplayFoods(): Promise<void> {
     // Display all foods initially (since ALL button is active by default)
     displayFoods(foods);
   } catch (error) {
-    console.error('❌ Error loading foods:', error);
+    // Removed excessive logging for performance
     showMessage('Error loading foods: ' + (error as Error).message, 'error');
   }
 }
@@ -95,11 +105,16 @@ function updateCategoryFilters(foods: any[]): void {
   
   // Start with ALL button, then add categories in the specified order that exist in our data
   const categories = ['all', ...categoryOrder.filter(cat => availableCategories.includes(cat))];
-  
+
+  // Helper to capitalize only the first letter
+  function capitalizeFirst(str: string) {
+    return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
+  }
+
   // Generate filter buttons (ALL button will be active by default)
   categoryFiltersContainer.innerHTML = categories.map((category, index) => {
     const isActive = index === 0 ? 'active' : '';
-    const displayName = category === 'all' ? 'ALL' : category;
+    const displayName = category === 'all' ? 'All' : capitalizeFirst(category);
     return `
       <button class="filter-btn ${isActive}" onclick="filterByCategory('${category}')" data-category="${category}">
         ${displayName}
@@ -111,8 +126,6 @@ function updateCategoryFilters(foods: any[]): void {
 }
 
 export function filterByCategory(category: string): void {
-  console.log(`🔍 Filtering by category: ${category}`);
-  
   // Update active button
   document.querySelectorAll('.filter-btn').forEach(btn => {
     btn.classList.remove('active');
@@ -131,18 +144,15 @@ export function filterByCategory(category: string): void {
     );
   }
   
-  console.log(`📊 Filtered to ${filteredFoods.length} foods`);
   displayFoods(filteredFoods);
 }
 
 export function displayFoods(foods: any[]): void {
   const foodGrid = document.getElementById('foodGrid');
   if (!foodGrid) {
-    console.warn('❌ Food grid element not found');
+    // Removed excessive logging for performance
     return;
   }
-
-      // Removed excessive logging for performance
 
   if (foods.length === 0) {
     foodGrid.innerHTML = '<p class="empty-state">No foods found. Upload your food data to get started!</p>';
@@ -154,16 +164,16 @@ export function displayFoods(foods: any[]): void {
 
   // Generate HTML for food cards
   foodGrid.innerHTML = foods.map(food => {
-    // Check if item is in shopping list by comparing both id and food_id
+    // Check if item is in shopping list
     const isInShoppingList = shoppingList.some(item => 
-      item.id === food.id || item.food_id === food.id
+      item.food_id === food.id
     );
     const buttonClass = isInShoppingList ? 'add-btn added' : 'add-btn';
     const buttonText = isInShoppingList ? 'Remove from List' : 'Add to List';
     const buttonAction = isInShoppingList ? `handleRemoveFromShoppingList('${food.id}', true)` : `addToShoppingList('${food.id}')`;
     
     return `
-      <div class="food-card">
+      <div class="food-card" data-food-id="${food.id}">
         <h4>${food.name}</h4>
         ${food.brand ? `<div class="brand-info">Brand: ${food.brand}</div>` : ''}
         <div class="nutrition-info">
@@ -173,11 +183,18 @@ export function displayFoods(foods: any[]): void {
         </div>
         ${food.instructions ? `<div class="food-instructions">${food.instructions}</div>` : ''}
         <div class="food-attribution">
-          Created by: ${food.created_by}
+          Created by: ${food.created_by || 'Unknown'}
         </div>
         <div class="food-actions">
-          <input type="number" class="quantity-input" value="1" min="1" id="qty-${food.id}">
-          <span class="serving-unit">${food.default_serving_unit || 'g'}</span>
+          <div class="quantity-unit-group">
+            <input type="number" 
+                   class="quantity-input" 
+                   value="1" 
+                   min="1" 
+                   id="qty-${food.id}"
+                   onchange="updateQuantity('${food.id}', this.value)"
+                   placeholder="Qty">
+          </div>
           <button class="${buttonClass}" onclick="${buttonAction}">
             ${buttonText}
           </button>
@@ -185,14 +202,146 @@ export function displayFoods(foods: any[]): void {
       </div>
     `;
   }).join('');
-  
-      // Removed excessive logging for performance
 }
 
 function formatNutrition(value: any): string {
   if (value === null || value === undefined || value === '') return '0';
   const num = parseFloat(value);
   return isNaN(num) ? '0' : num.toFixed(1);
+}
+
+// Load serving units for all foods and populate dropdowns
+async function loadServingUnitsForAllFoods(foods: any[]): Promise<void> {
+  for (const food of foods) {
+    try {
+      // First try to get serving units from the database
+      const { data: servingUnits, error } = await supabase
+        .from('serving_units')
+        .select('*')
+        .eq('food_id', food.id)
+        .order('is_default', { ascending: false });
+
+      if (error) throw error;
+      
+      const selectElement = document.getElementById(`unit-${food.id}`) as HTMLSelectElement;
+      
+      if (selectElement) {
+        // Clear existing options except for the default gram option
+        selectElement.innerHTML = '<option value="g">g</option>';
+        
+        // Add serving unit options if we have any
+        if (servingUnits && servingUnits.length > 0) {
+          servingUnits.forEach(unit => {
+            const option = document.createElement('option');
+            option.value = unit.unit_name;
+            option.textContent = unit.unit_name;
+            option.dataset.gramsPerUnit = unit.grams_per_unit.toString();
+            option.dataset.unitId = unit.id;
+            if (unit.is_default) {
+              option.selected = true;
+            }
+            selectElement.appendChild(option);
+          });
+        } else {
+          // If no serving units found, check if this is a known food with default units
+          const defaultUnits = getDefaultUnitsForFood(food.name);
+          if (defaultUnits) {
+            // Add default unit and save it to database
+            const unit = {
+              food_id: food.id,
+              unit_name: defaultUnits.name,
+              grams_per_unit: defaultUnits.grams,
+              is_default: true
+            };
+            
+            try {
+              const { data: savedUnit, error: saveError } = await supabase
+                .from('serving_units')
+                .insert([unit])
+                .select()
+                .single();
+                
+              if (!saveError && savedUnit) {
+                const option = document.createElement('option');
+                option.value = savedUnit.unit_name;
+                option.textContent = savedUnit.unit_name;
+                option.dataset.gramsPerUnit = savedUnit.grams_per_unit.toString();
+                option.dataset.unitId = savedUnit.id;
+                option.selected = true;
+                selectElement.appendChild(option);
+              }
+            } catch (err) {
+              // Removed excessive logging for performance
+            }
+          }
+        }
+      }
+    } catch (error) {
+      // Removed excessive logging for performance
+    }
+  }
+}
+
+// Helper function to get default units for known foods
+function getDefaultUnitsForFood(foodName: string): { name: string, grams: number } | null {
+  const name = foodName.toLowerCase();
+  const defaultUnits: { [key: string]: { name: string, grams: number } } = {
+    'bacon': { name: 'slice', grams: 28 },
+    'bread': { name: 'slice', grams: 30 },
+    'chicken breast': { name: 'piece', grams: 120 },
+    'egg': { name: 'EACH', grams: 50 },
+    'banana': { name: 'piece', grams: 120 },
+    'apple': { name: 'piece', grams: 180 },
+    'rice': { name: 'cup', grams: 200 },
+    'pasta': { name: 'cup', grams: 140 },
+    'milk': { name: 'cup', grams: 240 },
+    'yogurt': { name: 'cup', grams: 245 },
+    'cheese': { name: 'slice', grams: 30 },
+    'butter': { name: 'tablespoon', grams: 14 },
+    'oil': { name: 'tablespoon', grams: 15 },
+    'sugar': { name: 'teaspoon', grams: 4 },
+    'flour': { name: 'cup', grams: 120 },
+  };
+
+  // Check for exact matches first
+  if (defaultUnits[name]) {
+    return defaultUnits[name];
+  }
+
+  // Check for partial matches
+  for (const [key, value] of Object.entries(defaultUnits)) {
+    if (name.includes(key)) {
+      return value;
+    }
+  }
+
+  return null;
+}
+
+// Add these functions to handle quantity and serving unit changes
+function updateQuantity(foodId: string, value: string) {
+  const qty = parseFloat(value);
+  if (isNaN(qty) || qty < 1) return;
+  
+  const unitSelect = document.getElementById(`unit-${foodId}`) as HTMLSelectElement;
+  if (!unitSelect) return;
+  
+  const selectedOption = unitSelect.options[unitSelect.selectedIndex];
+  const gramsPerUnit = selectedOption.dataset.gramsPerUnit ? parseFloat(selectedOption.dataset.gramsPerUnit) : 1;
+  
+  // Update display or calculations as needed
+}
+
+function updateServingUnit(foodId: string, unitName: string) {
+  const qtyInput = document.getElementById(`qty-${foodId}`) as HTMLInputElement;
+  const unitSelect = document.getElementById(`unit-${foodId}`) as HTMLSelectElement;
+  if (!qtyInput || !unitSelect) return;
+  
+  const qty = parseFloat(qtyInput.value);
+  const selectedOption = unitSelect.options[unitSelect.selectedIndex];
+  const gramsPerUnit = selectedOption.dataset.gramsPerUnit ? parseFloat(selectedOption.dataset.gramsPerUnit) : 1;
+  
+  // Update display or calculations as needed
 }
 
 // Last update date functions
@@ -224,7 +373,6 @@ export async function handleFoodFileUpload(event: Event): Promise<void> {
   
   try {
     showMessage('Processing file...', 'success');
-    console.log('📄 Processing file:', file.name);
     
     // Basic file validation
     if (!file.name.endsWith('.xlsx') && !file.name.endsWith('.xls')) {
@@ -241,13 +389,10 @@ export async function handleFoodFileUpload(event: Event): Promise<void> {
       throw new Error('You must be logged in to upload food data');
     }
 
-    console.log('👤 Current user:', user.id);
-
     // Parse the Excel file
     const foods = await parseExcelFile(file);
     
     if (foods && foods.length > 0) {
-      console.log(`📊 Parsed ${foods.length} foods from Excel`);
       
       // Show progress message
       showMessage('Clearing existing foods and uploading new data...', 'success');
@@ -259,8 +404,6 @@ export async function handleFoodFileUpload(event: Event): Promise<void> {
       
       if (isAdmin) {
         // Admin upload: Choice between replacing all OR only Excel-sourced foods
-        console.log('🔧 Admin upload detected - choosing upload strategy');
-        
         const choice = confirm(
           '🔧 SMART MODE UPLOAD (Recommended) 🔧\n\n' +
           'This will:\n' +
@@ -273,7 +416,6 @@ export async function handleFoodFileUpload(event: Event): Promise<void> {
         
         if (choice) {
           // SMART MODE: Only delete foods that were uploaded from Excel (preserve manual foods)
-          console.log('🔧 Smart Mode activated: Preserving manually added admin foods');
           try {
             const { error } = await supabase
               .from('foods')
@@ -282,9 +424,8 @@ export async function handleFoodFileUpload(event: Event): Promise<void> {
               .is('user_id', null); // Only delete global Excel foods
             
             if (error) throw error;
-            console.log('🗑️ Cleared only Excel-uploaded foods, manually added admin foods preserved');
           } catch (error) {
-            console.warn('⚠️ Could not clear Excel foods:', error);
+            // Removed excessive logging for performance
           }
         } else {
           // REPLACE ALL MODE: Traditional behavior
@@ -308,16 +449,13 @@ export async function handleFoodFileUpload(event: Event): Promise<void> {
               .neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all
             
             if (error) throw error;
-            console.log('🗑️ Cleared entire food database');
           } catch (error) {
-            console.warn('⚠️ Could not clear database:', error);
+            // Removed excessive logging for performance
           }
         }
         
       } else {
         // Regular user upload: Smart approach to prevent database bloat
-        console.log('👤 User upload detected - using smart sharing approach');
-        
         shareGlobally = confirm(
           '🌍 SMART SHARING (Recommended) 🌍\n\n' +
           'To prevent database bloat, we recommend sharing Excel data globally:\n\n' +
@@ -331,7 +469,6 @@ export async function handleFoodFileUpload(event: Event): Promise<void> {
         
         if (shareGlobally) {
           // SMART SHARING: Add to global database with user attribution
-          console.log('🌍 Smart sharing mode: Adding to global database');
           try {
             // Clear only Excel uploads to prevent endless duplication
             const { error } = await supabase
@@ -341,18 +478,15 @@ export async function handleFoodFileUpload(event: Event): Promise<void> {
               .is('user_id', null); // Only delete global Excel foods
             
             if (error) throw error;
-            console.log('🗑️ Cleared previous Excel uploads to prevent duplication');
           } catch (error) {
-            console.warn('⚠️ Could not clear previous Excel uploads:', error);
+            // Removed excessive logging for performance
           }
         } else {
           // PERSONAL MODE: Traditional user-specific storage
-          console.log('👤 Personal mode: User-specific storage');
           try {
             await clearAllFoodsForUser();
-            console.log('🗑️ Cleared user\'s existing foods');
           } catch (error) {
-            console.warn('⚠️ Could not clear existing foods:', error);
+            // Removed excessive logging for performance
           }
         }
       }
@@ -387,35 +521,28 @@ export async function handleFoodFileUpload(event: Event): Promise<void> {
       }
       
       // Save all foods to database in bulk (much faster!)
-      console.log(`💾 Saving ${foodsWithMetadata.length} foods in bulk...`);
       
       let savedCount = 0;
       let errorCount = 0;
       
       try {
         await saveAllFoodsToDatabase(foodsWithMetadata);
-        console.log(`✅ Successfully saved all ${foodsWithMetadata.length} foods`);
         savedCount = foodsWithMetadata.length;
         errorCount = 0;
       } catch (error) {
-        console.error('❌ Failed to save foods in bulk:', error);
+        // Removed excessive logging for performance
         // Fallback to individual saves if bulk fails
-        console.log('🔄 Falling back to individual saves...');
-        savedCount = 0;
-        errorCount = 0;
         
         for (const food of foodsWithMetadata) {
           try {
             await saveFoodToDatabase(food);
             savedCount++;
           } catch (error) {
-            console.warn('❌ Failed to save food:', food.name, error);
+            // Removed excessive logging for performance
             errorCount++;
           }
         }
       }
-      
-      console.log(`📊 Save results: ${savedCount} saved, ${errorCount} errors`);
       
       // Refresh the display
       await loadAndDisplayFoods();
@@ -437,7 +564,7 @@ export async function handleFoodFileUpload(event: Event): Promise<void> {
     }
     
   } catch (error) {
-    console.error('❌ Error processing food file:', error);
+    // Removed excessive logging for performance
     showMessage(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error');
   }
   
@@ -503,15 +630,12 @@ function parseExcelData(data: any, resolve: (foods: any[]) => void, reject: (err
       lines.push(line);
     }
     
-    console.log('📊 Excel data converted to 2D array, first 3 rows:', lines.slice(0, 3));
-    
     // Parse food data from the 2D array using the multi-section logic
     const foods = parseFoodLines(lines);
     
-    console.log(`📊 Parsed ${foods.length} foods from Excel file`);
     resolve(foods);
   } catch (error) {
-    console.error('❌ Error parsing Excel data:', error);
+    // Removed excessive logging for performance
     reject(new Error('Failed to parse Excel file. Please check the format.'));
   }
 }
@@ -520,7 +644,7 @@ function parseFoodLines(lines: any[][]): any[] {
   const foods: any[] = [];
   
   if (lines.length < 3) {
-    console.error("Excel has too few rows to parse.");
+    // Removed excessive logging for performance
     return [];
   }
   
@@ -542,11 +666,9 @@ function parseFoodLines(lines: any[][]): any[] {
     
     // Validate headers (should be: food item, brand, carb, fat, prot)
     if (groupHeaders.join(',') !== 'food item,brand,carb,fat,prot') {
-      console.log(`⚠️ Skipping section "${sectionHeader}" - headers don't match expected format:`, groupHeaders);
+      // Removed excessive logging for performance
       continue;
     }
-    
-    console.log(`📊 Processing section "${sectionHeader}" at column ${col}`);
     
     // Process data rows (starting from row 2)
     for (let row = 2; row < lines.length; row++) {
@@ -640,96 +762,112 @@ export async function addFood(foodData: any): Promise<void> {
     await loadAndDisplayFoods(); // Refresh the display
     showMessage('Food added successfully', 'success');
   } catch (error) {
-    console.error('Error adding food:', error);
+    // Removed excessive logging for performance
     showMessage('Error adding food', 'error');
   }
 }
 
-export async function addToShoppingList(foodId: string): Promise<void> {
+async function handleAddFoodForm(event: Event): Promise<void> {
+  event.preventDefault();
+  
   try {
-    const food = allFoods.find(f => f.id === foodId);
-    const quantityInput = document.getElementById(`qty-${foodId}`) as HTMLInputElement;
-    const quantity = quantityInput ? parseInt(quantityInput.value) : 1;
+    const form = event.target as HTMLFormElement;
+    const formData = new FormData(form);
     
-    if (food) {
-      // Check if the item is already in the shopping list
-      const existingItem = shoppingList.find(item => (item.food_id === foodId || item.id === foodId));
-      
-      if (existingItem) {
-        // If it exists, just update the quantity
-        existingItem.quantity += quantity;
-      } else {
-        // If it's a new item, add it to the list
-        const newItem = {
-          ...food,
-          food_id: foodId,
-          quantity: quantity
-        };
-        shoppingList.push(newItem);
+    // Get form values
+    const name = formData.get('foodName') as string;
+    const brand = formData.get('foodBrand') as string;
+    const category = formData.get('foodCategory') as string;
+    const servingUnit = formData.get('foodServingUnit') as string;
+    const carbs = parseFloat(formData.get('foodCarbs') as string) || 0;
+    const fat = parseFloat(formData.get('foodFat') as string) || 0;
+    const protein = parseFloat(formData.get('foodProtein') as string) || 0;
+    
+    // Validate required fields
+    if (!name || !category || !servingUnit) {
+      showMessage('Please fill in all required fields (Name, Category, and Serving Unit)', 'error');
+      return;
+    }
+    
+    // Create food data object
+    const foodData = {
+      name: name.trim(),
+      brand: brand?.trim() || '',
+      category: category,
+      carbs: carbs,
+      fat: fat,
+      protein: protein,
+      instructions: '', // Not in the form, but required by database
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+    
+    // Add the food to database
+    await addFood(foodData);
+    
+    // Reset the form
+    form.reset();
+    
+    // Show success message with better visibility
+    showMessage('✅ Food item added successfully!', 'success');
+    
+    // Fallback: also show an alert if the toast doesn't work
+    setTimeout(() => {
+      const toast = document.getElementById('messageToast');
+      if (toast && toast.style.display === 'none') {
+        alert('✅ Food item added successfully!');
       }
-
-      // Save to database
-      await addToShoppingListDB(foodId, quantity);
-      
-      // Reload shopping list from database to get proper IDs
-      await loadShoppingListData();
-      
-      // Refresh the food display to update button states
-      displayFoods(allFoods.filter(food => {
-        const activeBtn = document.querySelector('.filter-btn.active');
-        const activeCategory = activeBtn?.getAttribute('data-category') || 'all';
-        return activeCategory === 'all' || food.category?.toLowerCase() === activeCategory.toLowerCase();
-      }));
-      
-      // Trigger shopping list refresh in the Shopping List module
-      try {
-        if (typeof (window as any).loadAndDisplayShoppingList === 'function') {
-          await (window as any).loadAndDisplayShoppingList();
-          console.log('✅ Shopping list display refreshed');
-        }
-        
-        // Also dispatch custom event for shopping list refresh
-        const refreshEvent = new CustomEvent('shoppingListNeedsRefresh', {
-          detail: { source: 'food-tracker', timestamp: Date.now() }
-        });
-        window.dispatchEvent(refreshEvent);
-      } catch (error) {
-        console.warn('⚠️ Could not refresh shopping list display:', error);
-      }
-      
-
-      
+    }, 100);
+    
+    // Navigate back to Admin section
+    const adminLink = document.querySelector('nav a[href="#admin"]') as HTMLElement;
+    if (adminLink) {
+      adminLink.click();
     } else {
-      console.error('Could not find food with ID:', foodId);
-      showMessage('Error: Could not add item to list.', 'error');
+      // Fallback: try to use showSection function
+      if (typeof (window as any).showSection === 'function') {
+        (window as any).showSection('admin');
+      }
     }
     
   } catch (error) {
-    console.error('Error adding to shopping list:', error);
-    showMessage('Error adding to shopping list', 'error');
+    // Removed excessive logging for performance
+    showMessage(`Error adding food: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error');
   }
 }
 
-function showMessage(message: string, type: 'success' | 'error' = 'success'): void {
-  // Create or update message element
-  let messageEl = document.getElementById('food-tracker-message');
-  if (!messageEl) {
-    messageEl = document.createElement('div');
-    messageEl.id = 'food-tracker-message';
-    messageEl.className = 'message';
-    const container = document.getElementById('food-tracker') || document.body;
-    container.insertBefore(messageEl, container.firstChild);
-  }
-  
-  messageEl.textContent = message;
-  messageEl.className = `message ${type}`;
-  messageEl.style.display = 'block';
-  
-  // Hide after 3 seconds
-  setTimeout(() => {
-    if (messageEl) messageEl.style.display = 'none';
-  }, 3000);
+export async function addToShoppingList(foodId: string): Promise<void> {
+    try {
+        const quantityInput = document.getElementById(`qty-${foodId}`) as HTMLInputElement;
+        
+        if (!quantityInput) {
+            throw new Error('Could not find quantity input');
+        }
+        
+        const quantity = parseInt(quantityInput.value) || 1;
+        
+        await addToShoppingListDB(foodId, quantity);
+        
+        // Update UI
+        const addButton = document.querySelector(`[onclick="addToShoppingList('${foodId}')"]`);
+        if (addButton) {
+            addButton.classList.add('added');
+            addButton.textContent = 'Remove from List';
+            addButton.setAttribute('onclick', `handleRemoveFromShoppingList('${foodId}', true)`);
+        }
+        
+        // Refresh shopping list display
+        await loadShoppingListData();
+        
+        showMessage(`Added ${quantity} to shopping list!`, 'success');
+        
+    } catch (error) {
+        // Removed excessive logging for performance
+        showMessage('Error adding to shopping list', 'error');
+    }
 }
+
+
 
 // Remove from shopping list function
 export async function removeFromShoppingList(foodId: string, fromFoodCard: boolean = false): Promise<void> {
@@ -742,9 +880,9 @@ export async function removeFromShoppingList(foodId: string, fromFoodCard: boole
       const { removeFromShoppingList: removeFromShoppingListDB } = await import('./database');
       await removeFromShoppingListDB(itemToRemove.id);
       
-      // Remove from local array (filter by food_id for shopping list items, or id for food items)
+      // Remove from local array (filter by food_id)
       shoppingList = shoppingList.filter(item => 
-        item.food_id !== foodId && item.id !== foodId
+        item.food_id !== foodId
       );
       
       updateShoppingListDisplay();
@@ -773,110 +911,125 @@ export async function removeFromShoppingList(foodId: string, fromFoodCard: boole
 
     }
   } catch (error) {
-    console.error('Error removing from shopping list:', error);
+    // Removed excessive logging for performance
     showMessage('Error removing item from shopping list', 'error');
   }
 }
 
 // Update shopping list display
 export function updateShoppingListDisplay(): void {
-  const shoppingItems = document.getElementById('shoppingItems');
-  if (!shoppingItems) return;
-  
-      // Removed excessive logging for performance
-  
-  shoppingItems.innerHTML = '';
-  let totalCarbs = 0;
-  let totalFat = 0;
-  let totalProtein = 0;
+    const container = document.getElementById('shoppingItems');
+    if (!container) return;
 
-  // Force reload shopping list data if display shows empty but totals are non-zero
-  if (shoppingList.length === 0) {
-    shoppingItems.innerHTML = '<p class="empty-state">Your shopping list is empty. Add some foods from the Food Tracker!</p>';
-    
-    // Reset totals to zero when list is empty
-    totalCarbs = 0;
-    totalFat = 0;
-    totalProtein = 0;
-  } else {
+    if (shoppingList.length === 0) {
+        container.innerHTML = '<p class="empty-state">Your shopping list is empty. Add items from the Food Tracker!</p>';
+        return;
+    }
+
     // Group items by category
-    const grouped: { [key: string]: any[] } = {};
-    shoppingList.forEach(item => {
-      const category = item.category || 'Other';
-      if (!grouped[category]) grouped[category] = [];
-      grouped[category].push(item);
+    const groupedItems = shoppingList.reduce((acc: any, item: any) => {
+        const category = item.food?.category || 'Other';
+        if (!acc[category]) acc[category] = [];
+        acc[category].push(item);
+        return acc;
+    }, {});
+
+    // Sort categories and items within categories
+    const sortedCategories = Object.keys(groupedItems).sort();
+    sortedCategories.forEach(category => {
+        groupedItems[category].sort((a: any, b: any) => {
+            const nameA = a?.food?.name || '';
+            const nameB = b?.food?.name || '';
+            return nameA.localeCompare(nameB);
+        });
     });
 
-    Object.keys(grouped).sort().forEach(category => {
-      const catDiv = document.createElement('div');
-      catDiv.className = 'shopping-category-group';
-      catDiv.innerHTML = `<h4 class="shopping-category-heading">${category}</h4>`;
-      
-      // Create grid container for items
-      const itemsGrid = document.createElement('div');
-      itemsGrid.className = 'shopping-category-items';
-      
-      grouped[category].forEach(item => {
-        const itemElement = document.createElement('div');
-        itemElement.className = 'shopping-item';
-        const brand = item.brand || '';
-        const name = item.name || '';
-        
-        // Create compact nutrition display
-        const carbs = parseFloat(item.carbs) || 0;
-        const fat = parseFloat(item.fat) || 0;
-        const protein = parseFloat(item.protein) || 0;
-        
-        itemElement.innerHTML = `
-          <div class="item-info">
-            <h4>${name}</h4>
-            ${brand ? `<span class="item-brand">Brand: ${brand}</span>` : ''}
-            <div class="item-nutrition">
-              <span>Carbs: ${carbs.toFixed(1)}g</span>
-              <span>Fat: ${fat.toFixed(1)}g</span>  
-              <span>Protein: ${protein.toFixed(1)}g</span>
+    // Generate HTML
+    const html = sortedCategories.map(category => `
+        <div class="shopping-category">
+            <h3>${category}</h3>
+            <div class="shopping-items-list">
+                ${groupedItems[category].map((item: any) => `
+                    <div class="shopping-item" data-id="${item.id}">
+                        <div class="item-info">
+                            <span class="item-name">${item.food?.name || 'Unknown Food'}</span>
+                            ${item.food?.brand ? `<span class="item-brand">(${item.food.brand})</span>` : ''}
+                            <div class="macro-info">
+                                <span>Carbs: ${item.food?.carbs || 0}g</span>
+                                <span>Fat: ${item.food?.fat || 0}g</span>
+                                <span>Protein: ${item.food?.protein || 0}g</span>
+                            </div>
+                        </div>
+                        <div class="item-quantity">
+                            <input type="number" 
+                                   value="${item.quantity}" 
+                                   min="1" 
+                                   onchange="updateShoppingItemQuantity('${item.id}', this.value)">
+                            <button onclick="handleRemoveFromShoppingList('${item.id}')" class="remove-btn">
+                                Remove
+                            </button>
+                        </div>
+                    </div>
+                `).join('')}
             </div>
-          </div>
-          <div class="food-attribution">
-            <span>Quantity: ${item.quantity}</span>
-            <button class="remove-btn" onclick="handleRemoveFromShoppingList('${item.food_id || item.id}')">Remove</button>
-          </div>
-        `;
-        itemsGrid.appendChild(itemElement);
-        
-        // Sum up nutrition for totals
-        totalCarbs += carbs * item.quantity;
-        totalFat += fat * item.quantity;
-        totalProtein += protein * item.quantity;
-      });
-      
-      catDiv.appendChild(itemsGrid);
-      shoppingItems.appendChild(catDiv);
-    });
-  }
-  
-  // Update totals if elements exist
-  const totalCarbsEl = document.getElementById('totalCarbs');
-  const totalFatEl = document.getElementById('totalFat');
-  const totalProteinEl = document.getElementById('totalProtein');
-  
-  if (totalCarbsEl) totalCarbsEl.textContent = totalCarbs.toFixed(1) + 'g';
-  if (totalFatEl) totalFatEl.textContent = totalFat.toFixed(1) + 'g';
-  if (totalProteinEl) totalProteinEl.textContent = totalProtein.toFixed(1) + 'g';
-  
-      // Removed excessive logging for performance
-  
-  // Force clear orphaned data if we have inconsistent state (empty list but non-zero totals)
-  if (shoppingList.length === 0 && (totalCarbs > 0 || totalFat > 0 || totalProtein > 0)) {
-    console.warn('⚠️ Detected orphaned shopping list data - clearing...');
-    forceRefreshShoppingList();
-  }
+        </div>
+    `).join('');
+
+    container.innerHTML = html;
+
+    // Update totals
+    updateShoppingListTotals();
+}
+
+function updateShoppingListTotals(): void {
+    const totalsContainer = document.getElementById('shoppingTotals');
+    if (!totalsContainer) return;
+
+    // Calculate totals
+    const totals = shoppingList.reduce((acc: any, item: any) => {
+        const quantity = item.quantity || 0;
+        const gramsPerUnit = item.grams_per_unit || 1;
+        const totalGrams = quantity * gramsPerUnit;
+        const multiplier = totalGrams / 100; // Convert to per 100g basis
+
+        acc.carbs += (item.carbs || 0) * multiplier;
+        acc.fat += (item.fat || 0) * multiplier;
+        acc.protein += (item.protein || 0) * multiplier;
+        return acc;
+    }, { carbs: 0, fat: 0, protein: 0 });
+
+    // Format totals to 1 decimal place
+    const formattedTotals = {
+        carbs: totals.carbs.toFixed(1),
+        fat: totals.fat.toFixed(1),
+        protein: totals.protein.toFixed(1)
+    };
+
+    totalsContainer.innerHTML = `
+        <div class="totals-header">Shopping List Totals</div>
+        <div class="macro-totals">
+            <div class="macro-total">
+                <span class="macro-label">Carbs:</span>
+                <span class="macro-value">${formattedTotals.carbs}g</span>
+            </div>
+            <div class="macro-total">
+                <span class="macro-label">Fat:</span>
+                <span class="macro-value">${formattedTotals.fat}g</span>
+            </div>
+            <div class="macro-total">
+                <span class="macro-label">Protein:</span>
+                <span class="macro-value">${formattedTotals.protein}g</span>
+            </div>
+        </div>
+    `;
+
+    totalsContainer.style.display = 'block';
 }
 
 // Force refresh shopping list data (clears orphaned data)
 async function forceRefreshShoppingList(): Promise<void> {
   try {
-    console.log('🔧 Force refreshing shopping list to clear orphaned data...');
+    // Removed excessive logging for performance
     
     // Clear database shopping list for current user
     await clearShoppingListFromDatabase();
@@ -887,33 +1040,32 @@ async function forceRefreshShoppingList(): Promise<void> {
     // Reload fresh data
     await loadShoppingListData();
     
-    console.log('✅ Shopping list force refresh completed');
+    // Removed excessive logging for performance
   } catch (error) {
-    console.error('❌ Error during force refresh:', error);
+    // Removed excessive logging for performance
   }
 }
 
 // Clear shopping list function
 export async function clearShoppingList(): Promise<void> {
   try {
-    console.log('🧹 FOOD-TRACKER: Starting shopping list clear...');
+    // Removed excessive logging for performance
     
     // Clear from database first
     await clearShoppingListFromDatabase();
-    console.log('✅ Database cleared');
+    // Removed excessive logging for performance
     
     // Clear from local array
     shoppingList = [];
-    console.log('✅ Local food-tracker array cleared');
+    // Removed excessive logging for performance
     
     // Also try to clear the shopping-list.ts system (skip database since we already cleared it)
     try {
       if (typeof (window as any).clearAllShoppingItems === 'function') {
         await (window as any).clearAllShoppingItems(true); // true = skip database clear
-        console.log('✅ shopping-list.ts system also cleared');
       }
     } catch (error) {
-      console.warn('⚠️ Could not clear shopping-list.ts system:', error);
+      // Removed excessive logging for performance
     }
     
     updateShoppingListDisplay();
@@ -925,19 +1077,16 @@ export async function clearShoppingList(): Promise<void> {
       return activeCategory === 'all' || food.category?.toLowerCase() === activeCategory.toLowerCase();
     }));
     
-    console.log('🎉 Shopping list fully cleared!');
     showMessage('Shopping list cleared! 🧹', 'success');
   } catch (error) {
-    console.error('❌ Error clearing shopping list:', error);
+    // Removed excessive logging for performance
     showMessage('Error clearing shopping list', 'error');
   }
 }
 
 // Reload shopping list from database and update display
 export async function reloadShoppingListFromDatabase(): Promise<void> {
-  console.log('🔄 Reloading shopping list from database...');
   await loadShoppingListData();
-  console.log('✅ Shopping list reloaded successfully');
 }
 
 // Global declarations for TypeScript
@@ -951,11 +1100,10 @@ declare global {
     handleClearShoppingList: () => void;
     updateShoppingListDisplay: () => void;
     reloadShoppingListFromDatabase: () => Promise<void>;
-    printShoppingList: () => void;
-    handleClearFoodTracker: () => void;
-    reloadFoodTracker: () => Promise<void>;
     loadAndDisplayFoods: () => Promise<void>;
     editFood: (foodId: string) => void;
+    updateQuantity: (foodId: string, value: string) => void;
+    updateServingUnit: (foodId: string, unitName: string) => void;
   }
 }
 
@@ -968,46 +1116,27 @@ window.clearShoppingList = clearShoppingList;
 window.handleClearShoppingList = handleClearShoppingList;
 window.updateShoppingListDisplay = updateShoppingListDisplay;
 window.reloadShoppingListFromDatabase = reloadShoppingListFromDatabase;
-window.printShoppingList = printShoppingList;
 window.loadAndDisplayFoods = loadAndDisplayFoods;
-window.reloadFoodTracker = loadAndDisplayFoods; // Alias for reloadFoodTracker
 window.editFood = editFood;
+window.updateQuantity = updateQuantity;
+window.updateServingUnit = updateServingUnit;
 
 // Debug function for console use
 (window as any).debugShoppingList = function() {
-  console.log('🔧 DEBUG: Shopping List State');
-  console.log('📊 FOOD-TRACKER array length:', shoppingList.length);
-  console.log('📋 FOOD-TRACKER array contents:', shoppingList);
-  
-  // Also check shopping-list.ts system
-  if (typeof (window as any).getCurrentShoppingList === 'function') {
-    const currentList = (window as any).getCurrentShoppingList();
-    console.log('📊 SHOPPING-LIST array length:', currentList.length);
-    console.log('📋 SHOPPING-LIST array contents:', currentList);
-  }
-  
+  // Debug function removed for production
   updateShoppingListDisplay();
 };
 
 (window as any).forceFixShoppingList = function() {
-  console.log('🔧 FORCE FIX: Clearing shopping list completely');
   forceRefreshShoppingList().then(() => {
-    console.log('✅ Shopping list force fix completed');
+    // Force fix completed
   }).catch(error => {
-    console.error('❌ Error during force fix:', error);
-  });
-};
-window.handleClearFoodTracker = () => {
-  handleClearFoodTracker().catch(error => {
-    console.error('Error clearing food tracker:', error);
-    showMessage('Error clearing food tracker', 'error');
+    // Removed excessive logging for performance
   });
 };
 
 // Wrapper function for clear shopping list - ensure both systems are cleared
 function handleClearShoppingList(): void {
-  console.log('🗑️ FOOD-TRACKER: Clear shopping list requested...');
-  
   // Check if we have items to clear
   if (!shoppingList || shoppingList.length === 0) {
     showMessage('Shopping list is already empty!', 'success');
@@ -1018,351 +1147,25 @@ function handleClearShoppingList(): void {
   
   if (confirmed) {
     clearShoppingList().catch(error => {
-      console.error('Error clearing shopping list:', error);
+      // Removed excessive logging for performance
       showMessage('Error clearing shopping list', 'error');
     });
-  } else {
-    console.log('🚫 Clear shopping list cancelled by user');
   }
 }
 
 // Wrapper function for remove from shopping list  
 function handleRemoveFromShoppingList(foodId: string, fromFoodCard: boolean = false): void {
   removeFromShoppingList(foodId, fromFoodCard).catch(error => {
-    console.error('Error removing from shopping list:', error);
+    // Removed excessive logging for performance
     showMessage('Error removing item', 'error');
   });
-}
-
-// Print shopping list function
-export function printShoppingList(): void {
-  if (!shoppingList || shoppingList.length === 0) {
-    showMessage('Your shopping list is empty. Add some items first!', 'error');
-    return;
-  }
-
-  // Get current user information
-  const currentUser = getCurrentAuthUser();
-  const userName = currentUser?.user_metadata?.name || currentUser?.email || 'User';
-
-  // Create a print-friendly version of the shopping list
-  const printWindow = window.open('', '_blank');
-  if (!printWindow) {
-    showMessage('Please allow popups to print your shopping list', 'error');
-    return;
-  }
-
-  // Calculate totals
-  let totalCarbs = 0;
-  let totalFat = 0;
-  let totalProtein = 0;
-  let totalItems = 0;
-
-  shoppingList.forEach(item => {
-    totalCarbs += (parseFloat(item.carbs) || 0) * item.quantity;
-    totalFat += (parseFloat(item.fat) || 0) * item.quantity;
-    totalProtein += (parseFloat(item.protein) || 0) * item.quantity;
-    totalItems += item.quantity;
-  });
-
-  // Group items by category
-  const grouped: { [key: string]: any[] } = {};
-  shoppingList.forEach(item => {
-    const category = item.category || 'Other';
-    if (!grouped[category]) grouped[category] = [];
-    grouped[category].push(item);
-  });
-
-  // Generate print HTML
-  const printContent = `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <title>NutriValor - Shopping List</title>
-      <style>
-        body { 
-          font-family: Arial, sans-serif; 
-          margin: 10px; 
-          line-height: 1.2;
-          font-size: 12px;
-        }
-        .header {
-          text-align: center;
-          border-bottom: 1px solid #333;
-          padding-bottom: 8px;
-          margin-bottom: 15px;
-        }
-        .header h1 {
-          font-size: 18px;
-          margin: 0 0 5px 0;
-        }
-        .user-info {
-          font-size: 12px;
-          color: #667eea;
-          font-weight: bold;
-          margin-bottom: 5px;
-        }
-        .header p {
-          font-size: 10px;
-          margin: 0;
-          color: #666;
-        }
-        .content-wrapper {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 15px;
-          column-fill: balance;
-        }
-        .category {
-          margin-bottom: 12px;
-          break-inside: avoid;
-          page-break-inside: avoid;
-        }
-        .category-title {
-          background: #f5f5f5;
-          padding: 4px 8px;
-          font-weight: bold;
-          font-size: 13px;
-          border-left: 3px solid #667eea;
-          margin-bottom: 5px;
-        }
-        .item {
-          padding: 3px 8px;
-          border-bottom: 1px solid #eee;
-          display: flex;
-          justify-content: space-between;
-          align-items: flex-start;
-          font-size: 11px;
-        }
-        .item-checkbox {
-          width: 12px;
-          height: 12px;
-          border: 1px solid #333;
-          margin-right: 8px;
-          margin-top: 2px;
-          flex-shrink: 0;
-        }
-        .item-details {
-          flex: 1;
-          margin-right: 8px;
-        }
-        .item-name {
-          font-weight: bold;
-          font-size: 12px;
-          line-height: 1.2;
-        }
-        .item-brand {
-          color: #666;
-          font-style: italic;
-          font-size: 10px;
-          line-height: 1.1;
-        }
-        .item-nutrition {
-          font-size: 9px;
-          color: #888;
-          line-height: 1.1;
-          margin-top: 2px;
-        }
-        .item-quantity {
-          font-weight: bold;
-          color: #667eea;
-          font-size: 11px;
-          white-space: nowrap;
-        }
-        .totals {
-          margin-top: 15px;
-          border: 1px solid #333;
-          padding: 10px;
-          background: #f9f9f9;
-          break-inside: avoid;
-          page-break-inside: avoid;
-          grid-column: 1 / -1;
-        }
-        .totals-title {
-          font-size: 14px;
-          font-weight: bold;
-          margin-bottom: 8px;
-          text-align: center;
-        }
-        .totals-grid {
-          display: grid;
-          grid-template-columns: repeat(4, 1fr);
-          gap: 8px;
-          text-align: center;
-        }
-        .total-item {
-          padding: 5px;
-          background: white;
-          border-radius: 3px;
-        }
-        .total-label {
-          font-size: 9px;
-          color: #666;
-          display: block;
-        }
-        .total-value {
-          font-size: 12px;
-          font-weight: bold;
-          color: #333;
-        }
-        .footer {
-          margin-top: 15px;
-          text-align: center;
-          font-size: 9px;
-          color: #666;
-          border-top: 1px solid #ccc;
-          padding-top: 5px;
-          grid-column: 1 / -1;
-        }
-        @media screen and (max-width: 600px) {
-          .content-wrapper {
-            grid-template-columns: 1fr;
-          }
-        }
-        @media print {
-          body { margin: 5px; }
-          .category { break-inside: avoid; page-break-inside: avoid; }
-          .item { break-inside: avoid; }
-          .totals { break-inside: avoid; page-break-inside: avoid; }
-        }
-      </style>
-    </head>
-    <body>
-      <div class="header">
-        <h1>NutriValor Shopping List</h1>
-        <div class="user-info">For: ${userName}</div>
-        <p>${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}</p>
-      </div>
-      
-      <div class="content-wrapper">
-        ${Object.keys(grouped).sort().map(category => `
-          <div class="category">
-            <div class="category-title">${category}</div>
-            ${grouped[category].map(item => `
-              <div class="item">
-                <div class="item-checkbox"></div>
-                <div class="item-details">
-                  <div class="item-name">${item.name}</div>
-                  ${item.brand ? `<div class="item-brand">${item.brand}</div>` : ''}
-                  <div class="item-nutrition">
-                    C:${formatNutrition(item.carbs)}g F:${formatNutrition(item.fat)}g P:${formatNutrition(item.protein)}g
-                  </div>
-                </div>
-                <div class="item-quantity">${item.quantity}</div>
-              </div>
-            `).join('')}
-          </div>
-        `).join('')}
-        
-        <div class="totals">
-          <div class="totals-title">Nutrition Totals</div>
-          <div class="totals-grid">
-            <div class="total-item">
-              <span class="total-label">Items</span>
-              <div class="total-value">${totalItems}</div>
-            </div>
-            <div class="total-item">
-              <span class="total-label">Carbs</span>
-              <div class="total-value">${totalCarbs.toFixed(1)}g</div>
-            </div>
-            <div class="total-item">
-              <span class="total-label">Fat</span>
-              <div class="total-value">${totalFat.toFixed(1)}g</div>
-            </div>
-            <div class="total-item">
-              <span class="total-label">Protein</span>
-              <div class="total-value">${totalProtein.toFixed(1)}g</div>
-            </div>
-          </div>
-        </div>
-        
-        <div class="footer">
-          <p>© NutriValor - Value your Nutrition</p>
-        </div>
-      </div>
-      
-      <script>
-        window.onload = function() {
-          window.print();
-        }
-      </script>
-    </body>
-    </html>
-  `;
-
-  printWindow.document.write(printContent);
-  printWindow.document.close();
-  
-  showMessage('Opening print dialog...', 'success');
-}
-
-// Clear all food items from Food Tracker
-export async function handleClearFoodTracker(): Promise<void> {
-  console.log('🗑️ Clear food tracker requested...');
-  
-  if (!allFoods || allFoods.length === 0) {
-    showMessage('Food tracker is already empty!', 'error');
-    return;
-  }
-  
-  const confirmed = confirm(`Are you sure you want to clear all ${allFoods.length} food items from the Food Tracker? This will also clear your shopping list. This action cannot be undone.`);
-  
-  if (!confirmed) {
-    console.log('🚫 Clear food tracker cancelled by user');
-    return;
-  }
-  
-  try {
-    // Get current user
-    const user = await getCurrentAuthUser();
-    if (!user) {
-      showMessage('Please log in first.', 'error');
-      return;
-    }
-    
-    console.log('🗑️ Clearing all foods for user...');
-    
-    // Clear foods from database
-    await clearAllFoodsForUser();
-    
-    // Clear shopping list from database as well since it depends on foods
-    await clearShoppingListFromDatabase();
-    
-    // Clear local data
-    allFoods = [];
-    shoppingList = [];
-    
-    // Update displays
-    displayFoods([]);
-    updateShoppingListDisplay();
-    
-    // Clear category filters (reset to just ALL)
-    const categoryFiltersContainer = document.querySelector('.category-filters');
-    if (categoryFiltersContainer) {
-      categoryFiltersContainer.innerHTML = '<button class="filter-btn active" onclick="filterByCategory(\'all\')">ALL</button>';
-    }
-    
-    // Clear last update info
-    localStorage.removeItem('lastFoodUploadDate');
-    const lastUpdateInfo = document.getElementById('lastUpdateInfo');
-    if (lastUpdateInfo) {
-      lastUpdateInfo.style.display = 'none';
-    }
-    
-    showMessage('Food tracker and shopping list cleared successfully!', 'success');
-    console.log('✅ Food tracker cleared successfully');
-    
-  } catch (error) {
-    console.error('❌ Error clearing food tracker:', error);
-    showMessage('Error clearing food tracker: ' + (error as Error).message, 'error');
-  }
 }
 
 // Add editFood function
 export function editFood(foodId: string): void {
     const food = allFoods.find(f => f.id === foodId);
     if (!food) {
-        console.error('Food not found:', foodId);
+        // Removed excessive logging for performance
         return;
     }
 
@@ -1379,7 +1182,7 @@ export function editFood(foodId: string): void {
 
     if (!editForm || !editFoodId || !editFoodName || !editFoodBrand || !editFoodCarbs || 
         !editFoodFat || !editFoodProtein || !editFoodInstructions || !editFoodCategory) {
-        console.error('Edit form elements not found');
+        // Removed excessive logging for performance
         return;
     }
 
@@ -1425,7 +1228,7 @@ export async function deleteFoodFromEdit(): Promise<void> {
         cancelFoodEdit();
         await loadAndDisplayFoods();
     } catch (error) {
-        console.error('Error deleting food:', error);
+        // Removed excessive logging for performance
         showMessage('Error deleting food', 'error');
     }
 }
@@ -1434,38 +1237,6 @@ export async function deleteFoodFromEdit(): Promise<void> {
 document.addEventListener('DOMContentLoaded', () => {
     const editFoodForm = document.getElementById('editFoodForm') as HTMLFormElement;
     if (editFoodForm) {
-        editFoodForm.addEventListener('submit', async (event) => {
-            event.preventDefault();
-
-            const foodId = (document.getElementById('editFoodId') as HTMLInputElement).value;
-            const name = (document.getElementById('editFoodName') as HTMLInputElement).value;
-            const brand = (document.getElementById('editFoodBrand') as HTMLInputElement).value;
-            const carbs = parseFloat((document.getElementById('editFoodCarbs') as HTMLInputElement).value);
-            const fat = parseFloat((document.getElementById('editFoodFat') as HTMLInputElement).value);
-            const protein = parseFloat((document.getElementById('editFoodProtein') as HTMLInputElement).value);
-            const instructions = (document.getElementById('editFoodInstructions') as HTMLTextAreaElement).value;
-            const category = (document.getElementById('editFoodCategory') as HTMLSelectElement).value;
-
-            try {
-                const updatedFood = {
-                    id: foodId,
-                    name,
-                    brand,
-                    carbs,
-                    fat,
-                    protein,
-                    instructions,
-                    category
-                };
-
-                await updateFoodInDatabase(updatedFood);
-                showMessage('Food updated successfully', 'success');
-                cancelFoodEdit();
-                await loadAndDisplayFoods();
-            } catch (error) {
-                console.error('Error updating food:', error);
-                showMessage('Error updating food', 'error');
-            }
-        });
+        // Food edit form found, event handling moved to simple-edit.ts
     }
 });

@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Edit Meal Functionality</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 20px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .primary-btn { background: #007bff; color: white; }
+        .secondary-btn { background: #6c757d; color: white; }
+        .success { background: #28a745; color: white; }
+        .error { background: #dc3545; color: white; }
+    </style>
+</head>
+<body>
+    <h1>Test Edit Meal Functionality</h1>
+    
+    <div class="test-section">
+        <h2>Test Steps:</h2>
+        <ol>
+            <li>Click "Open Edit Meal Modal" to open the modal</li>
+            <li>Select a meal from the dropdown</li>
+            <li>Verify the form appears with meal data</li>
+            <li>Check that ingredients are displayed</li>
+            <li>Test adding/removing ingredients</li>
+        </ol>
+        
+        <button class="primary-btn" onclick="testOpenModal()">Open Edit Meal Modal</button>
+        <button class="secondary-btn" onclick="testLoadMeal()">Test Load Meal (Direct)</button>
+        <button class="success" onclick="checkConsole()">Check Console for Errors</button>
+    </div>
+
+    <div class="test-section">
+        <h2>Test Results:</h2>
+        <div id="testResults"></div>
+    </div>
+
+    <script>
+        function testOpenModal() {
+            console.log('Testing openEditMealModal...');
+            if (typeof window.openEditMealModal === 'function') {
+                window.openEditMealModal();
+                logResult('✅ openEditMealModal function exists and called');
+            } else {
+                logResult('❌ openEditMealModal function not found');
+            }
+        }
+
+        function testLoadMeal() {
+            console.log('Testing loadMealForEdit...');
+            if (typeof window.loadMealForEdit === 'function') {
+                // Test with a dummy meal ID
+                window.loadMealForEdit('test-meal-id');
+                logResult('✅ loadMealForEdit function exists and called');
+            } else {
+                logResult('❌ loadMealForEdit function not found');
+            }
+        }
+
+        function checkConsole() {
+            console.log('Checking for console errors...');
+            logResult('🔍 Check browser console for any error messages');
+        }
+
+        function logResult(message) {
+            const results = document.getElementById('testResults');
+            const div = document.createElement('div');
+            div.textContent = `${new Date().toLocaleTimeString()}: ${message}`;
+            results.appendChild(div);
+        }
+
+        // Check if functions are available on page load
+        window.addEventListener('load', () => {
+            logResult('Page loaded, checking function availability...');
+            
+            const functions = [
+                'openEditMealModal',
+                'loadMealForEdit',
+                'closeEditMealModal',
+                'addNewIngredient',
+                'saveEditedMeal'
+            ];
+
+            functions.forEach(func => {
+                if (typeof window[func] === 'function') {
+                    logResult(`✅ ${func} function available`);
+                } else {
+                    logResult(`❌ ${func} function not available`);
+                }
+            });
+        });
+    </script>
+</body>
+</html> 

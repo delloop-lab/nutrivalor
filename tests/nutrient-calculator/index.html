@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nutrient Calculator Test Page</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 20px;
+        }
+        .input-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input[type="number"] {
+            width: 100px;
+            padding: 5px;
+        }
+        select {
+            padding: 5px;
+        }
+        button {
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        #result {
+            margin-top: 20px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background-color: #f9f9f9;
+        }
+        .unit-input {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <h1>Nutrient Calculator Test</h1>
+    
+    <div class="input-group">
+        <label for="inputType">Input Type:</label>
+        <select id="inputType" onchange="toggleUnitInput()">
+            <option value="grams">Grams</option>
+            <option value="unit">Unit</option>
+        </select>
+    </div>
+
+    <div class="input-group">
+        <label for="quantity">Quantity:</label>
+        <input type="number" id="quantity" min="0" step="0.1" value="100">
+    </div>
+
+    <div class="input-group unit-input" id="unitGroup">
+        <label for="gramsPerUnit">Grams per Unit:</label>
+        <input type="number" id="gramsPerUnit" min="0" step="0.1" value="85">
+    </div>
+
+    <h3>Macros per 100g:</h3>
+    <div class="input-group">
+        <label for="calories">Calories:</label>
+        <input type="number" id="calories" min="0" step="0.1" value="250">
+    </div>
+
+    <div class="input-group">
+        <label for="protein">Protein (g):</label>
+        <input type="number" id="protein" min="0" step="0.1" value="20">
+    </div>
+
+    <div class="input-group">
+        <label for="fat">Fat (g):</label>
+        <input type="number" id="fat" min="0" step="0.1" value="15">
+    </div>
+
+    <div class="input-group">
+        <label for="carbs">Carbs (g):</label>
+        <input type="number" id="carbs" min="0" step="0.1" value="10">
+    </div>
+
+    <button onclick="calculateNutrients()">Calculate</button>
+
+    <div id="result">
+        Results will appear here...
+    </div>
+
+    <script type="module">
+        // Import the calculator function
+        import { calculateNutrientsFromInput } from '../../src/js/nutrient-calculator.ts';
+
+        // Make the function available globally for the onclick handler
+        window.calculateNutrients = function() {
+            try {
+                const inputType = document.getElementById('inputType').value;
+                const quantity = parseFloat(document.getElementById('quantity').value);
+                const gramsPerUnit = parseFloat(document.getElementById('gramsPerUnit').value);
+                const calories = parseFloat(document.getElementById('calories').value);
+                const protein = parseFloat(document.getElementById('protein').value);
+                const fat = parseFloat(document.getElementById('fat').value);
+                const carbs = parseFloat(document.getElementById('carbs').value);
+
+                const input = {
+                    macrosPer100g: {
+                        calories,
+                        protein,
+                        fat,
+                        carbs
+                    },
+                    inputType,
+                    quantity,
+                    gramsPerUnit: inputType === 'unit' ? gramsPerUnit : undefined
+                };
+
+                const result = calculateNutrientsFromInput(input);
+
+                document.getElementById('result').innerHTML = `
+                    <h3>Results:</h3>
+                    <p>Total Grams: ${result.totalGrams.toFixed(1)}g</p>
+                    <p>Calories: ${result.calories.toFixed(1)}</p>
+                    <p>Protein: ${result.protein.toFixed(1)}g</p>
+                    <p>Fat: ${result.fat.toFixed(1)}g</p>
+                    <p>Carbs: ${result.carbs.toFixed(1)}g</p>
+                `;
+            } catch (error) {
+                document.getElementById('result').innerHTML = `
+                    <p style="color: red;">Error: ${error.message}</p>
+                `;
+            }
+        };
+
+        // Function to toggle unit input visibility
+        window.toggleUnitInput = function() {
+            const unitGroup = document.getElementById('unitGroup');
+            const inputType = document.getElementById('inputType').value;
+            unitGroup.style.display = inputType === 'unit' ? 'block' : 'none';
+        };
+    </script>
+</body>
+</html> 

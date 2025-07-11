@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meal Nutrients Calculator Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 20px;
+        }
+        .input-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input[type="number"] {
+            width: 100px;
+            padding: 5px;
+        }
+        select {
+            padding: 5px;
+        }
+        button {
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        #result {
+            margin-top: 20px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background-color: #f9f9f9;
+        }
+        .unit-input {
+            display: none;
+        }
+        .test-case {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #e9ecef;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Meal Nutrients Calculator Test</h1>
+    
+    <div class="input-group">
+        <label for="inputType">Input Type:</label>
+        <select id="inputType" onchange="toggleUnitInput()">
+            <option value="grams">Grams</option>
+            <option value="unit">Unit</option>
+        </select>
+    </div>
+
+    <div class="input-group">
+        <label for="quantity">Quantity:</label>
+        <input type="number" id="quantity" min="0" step="0.1" value="3">
+    </div>
+
+    <div class="input-group unit-input" id="unitGroup">
+        <label for="gramsPerUnit">Grams per Unit:</label>
+        <input type="number" id="gramsPerUnit" min="0" step="0.1" value="17">
+    </div>
+
+    <h3>Macros per 100g:</h3>
+    <div class="input-group">
+        <label for="calories">Calories:</label>
+        <input type="number" id="calories" min="0" step="0.1" value="541">
+    </div>
+
+    <div class="input-group">
+        <label for="fat">Fat (g):</label>
+        <input type="number" id="fat" min="0" step="0.1" value="42">
+    </div>
+
+    <div class="input-group">
+        <label for="protein">Protein (g):</label>
+        <input type="number" id="protein" min="0" step="0.1" value="37">
+    </div>
+
+    <div class="input-group">
+        <label for="carbs">Carbs (g):</label>
+        <input type="number" id="carbs" min="0" step="0.1" value="1.4">
+    </div>
+
+    <button onclick="calculateNutrients()">Calculate</button>
+    <button onclick="loadBaconExample()">Load Bacon Example</button>
+
+    <div id="result">
+        Results will appear here...
+    </div>
+
+    <div class="test-case">
+        <h3>Example Test Case (Bacon)</h3>
+        <p>Input type: unit</p>
+        <p>Quantity: 3 slices</p>
+        <p>Grams per unit: 17g</p>
+        <p>Per 100g:</p>
+        <ul>
+            <li>Calories: 541</li>
+            <li>Fat: 42g</li>
+            <li>Protein: 37g</li>
+            <li>Carbs: 1.4g</li>
+        </ul>
+        <p>Expected result (for 51g total):</p>
+        <ul>
+            <li>Calories: ~275.91</li>
+            <li>Fat: ~21.42g</li>
+            <li>Protein: ~18.87g</li>
+            <li>Carbs: ~0.71g</li>
+        </ul>
+    </div>
+
+    <script>
+        // Calculator function implementation
+        function calculateMealFoodNutrients(input) {
+            const { macrosPer100g, inputType, quantity, gramsPerUnit } = input;
+
+            // Input validation
+            if (quantity < 0) {
+                throw new Error('Quantity cannot be negative');
+            }
+
+            if (inputType === 'unit' && (!gramsPerUnit || gramsPerUnit <= 0)) {
+                throw new Error('Valid gramsPerUnit is required when using unit input type');
+            }
+
+            // Calculate total grams based on input type
+            const totalGrams = inputType === 'grams' 
+                ? quantity 
+                : quantity * gramsPerUnit;
+
+            // Calculate nutrients based on total grams
+            const factor = totalGrams / 100;
+
+            return {
+                totalGrams,
+                calories: macrosPer100g.calories * factor,
+                fat: macrosPer100g.fat * factor,
+                protein: macrosPer100g.protein * factor,
+                carbs: macrosPer100g.carbs * factor
+            };
+        }
+
+        // UI Functions
+        function calculateNutrients() {
+            try {
+                const inputType = document.getElementById('inputType').value;
+                const quantity = parseFloat(document.getElementById('quantity').value);
+                const gramsPerUnit = parseFloat(document.getElementById('gramsPerUnit').value);
+                const calories = parseFloat(document.getElementById('calories').value);
+                const fat = parseFloat(document.getElementById('fat').value);
+                const protein = parseFloat(document.getElementById('protein').value);
+                const carbs = parseFloat(document.getElementById('carbs').value);
+
+                const input = {
+                    macrosPer100g: {
+                        calories,
+                        fat,
+                        protein,
+                        carbs
+                    },
+                    inputType,
+                    quantity,
+                    gramsPerUnit: inputType === 'unit' ? gramsPerUnit : undefined
+                };
+
+                const result = calculateMealFoodNutrients(input);
+
+                document.getElementById('result').innerHTML = `
+                    <h3>Results:</h3>
+                    <p>Total Grams: ${result.totalGrams.toFixed(2)}g</p>
+                    <p>Calories: ${result.calories.toFixed(2)}</p>
+                    <p>Fat: ${result.fat.toFixed(2)}g</p>
+                    <p>Protein: ${result.protein.toFixed(2)}g</p>
+                    <p>Carbs: ${result.carbs.toFixed(2)}g</p>
+                `;
+            } catch (error) {
+                document.getElementById('result').innerHTML = `
+                    <p style="color: red;">Error: ${error.message}</p>
+                `;
+            }
+        }
+
+        function loadBaconExample() {
+            document.getElementById('inputType').value = 'unit';
+            document.getElementById('quantity').value = '3';
+            document.getElementById('gramsPerUnit').value = '17';
+            document.getElementById('calories').value = '541';
+            document.getElementById('fat').value = '42';
+            document.getElementById('protein').value = '37';
+            document.getElementById('carbs').value = '1.4';
+            toggleUnitInput();
+            calculateNutrients();
+        }
+
+        function toggleUnitInput() {
+            const unitGroup = document.getElementById('unitGroup');
+            const inputType = document.getElementById('inputType').value;
+            unitGroup.style.display = inputType === 'unit' ? 'block' : 'none';
+        }
+
+        // Initialize the page with the bacon example
+        window.onload = function() {
+            document.getElementById('inputType').value = 'unit';
+            toggleUnitInput();
+        }
+    </script>
+</body>
+</html> 

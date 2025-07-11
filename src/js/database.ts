@@ -2,6 +2,7 @@
 // This module handles database operations and provides a unified interface
 
 import { supabase } from './supabase-client';
+import { getCurrentAuthUser } from './auth';
 
 // Initialize database connection
 export async function initializeDatabase(): Promise<void> {
@@ -123,6 +124,98 @@ export async function deleteFoodFromDatabase(id: string): Promise<void> {
     if (error) throw error;
 }
 
+// Serving Units operations
+export async function loadServingUnitsForFood(foodId: string): Promise<any[]> {
+    if (!supabase) throw new Error('Supabase not initialized');
+    
+    const { data, error } = await supabase
+        .from('serving_units')
+        .select('*')
+        .eq('food_id', foodId)
+        .order('is_default', { ascending: false })
+        .order('unit_name');
+        
+    if (error) throw error;
+    return data || [];
+}
+
+export async function saveServingUnitToDatabase(servingUnit: any): Promise<any> {
+    if (!supabase) throw new Error('Supabase not initialized');
+    
+    const { data, error } = await supabase
+        .from('serving_units')
+        .insert([servingUnit])
+        .select();
+        
+    if (error) throw error;
+    return data[0];
+}
+
+export async function updateServingUnitInDatabase(id: string, updates: any): Promise<any> {
+    if (!supabase) throw new Error('Supabase not initialized');
+    
+    const { data, error } = await supabase
+        .from('serving_units')
+        .update(updates)
+        .eq('id', id)
+        .select();
+        
+    if (error) throw error;
+    return data[0];
+}
+
+export async function deleteServingUnitFromDatabase(id: string): Promise<void> {
+    if (!supabase) throw new Error('Supabase not initialized');
+    
+    const { error } = await supabase
+        .from('serving_units')
+        .delete()
+        .eq('id', id);
+        
+    if (error) throw error;
+}
+
+// Get default serving unit for a food
+export async function getDefaultServingUnit(foodId: string): Promise<any | null> {
+    if (!supabase) throw new Error('Supabase not initialized');
+    
+    const { data, error } = await supabase
+        .from('serving_units')
+        .select('*')
+        .eq('food_id', foodId)
+        .eq('is_default', true)
+        .single();
+        
+    if (error && error.code !== 'PGRST116') throw error;
+    return data;
+}
+
+// Calculate macros for a serving of food
+export function calculateMacrosForServing(food: any, servingUnit: any, quantity: number) {
+    // For EACH units, use direct multiplication (no grams calculation needed)
+    if (servingUnit.unit_name.toUpperCase() === 'EACH') {
+        return {
+            calories: Math.round((food.calories || 0) * quantity * 10) / 10,
+            protein: Math.round(food.protein * quantity * 10) / 10,
+            fat: Math.round(food.fat * quantity * 10) / 10,
+            carbs: Math.round(food.carbs * quantity * 10) / 10,
+            totalGrams: null // Don't track grams for EACH units
+        };
+    }
+
+    // For all other units, calculate based on grams
+    const totalGrams = servingUnit.grams_per_unit * quantity;
+    const factor = totalGrams / 100;
+
+    return {
+        calories: Math.round((food.calories || 0) * factor * 10) / 10,
+        protein: Math.round(food.protein * factor * 10) / 10,
+        fat: Math.round(food.fat * factor * 10) / 10,
+        carbs: Math.round(food.carbs * factor * 10) / 10,
+        totalGrams: Math.round(totalGrams * 10) / 10
+    };
+}
+
 // Clear all foods for the current user
 export async function clearAllFoodsForUser(): Promise<void> {
     if (!supabase) throw new Error('Supabase not initialized');
@@ -193,106 +286,60 @@ export async function deleteMealFromDatabase(id: string): Promise<void> {
 }
 
 // Shopping list operations
-export async function addToShoppingList(foodId: string, quantity: number = 1): Promise<any> {
-    console.log(`🗄️ DATABASE: addToShoppingList called with foodId="${foodId}", quantity=${quantity}`);
+export async function addToShoppingList(foodId: string, quantity: number = 1, unit: string = 'EACH'): Promise<any> {
     if (!supabase) throw new Error('Supabase not initialized');
     
     // Get current user
     const { data: { user }, error: userError } = await supabase.auth.getUser();
-    if (userError || !user) {
-        throw new Error('User must be authenticated to add to shopping list');
-    }
+    if (userError || !user) throw new Error('No authenticated user');
     
-    // First, get the food details to populate the shopping list entry
-    // Note: Don't filter by user_id since foods can be global (user_id=null) or from other users
-    const { data: food, error: foodError } = await supabase
-        .from('foods')
-        .select('*')
-        .eq('id', foodId)
-        .single();
+    // Add to shopping list with minimal fields first
+    const shoppingItem = {
+        food_id: foodId,
+        user_id: user.id,
+        quantity: quantity,
+        unit: unit
+    };
     
-    if (foodError || !food) {
-        console.error('🗄️ DATABASE: Food lookup failed:', foodError);
-        throw new Error(`Food not found with ID: ${foodId}`);
-    }
-    
-    // Check if this food item already exists in the shopping list
-    const { data: existingItem, error: existingError } = await supabase
+    const { data, error } = await supabase
         .from('shopping_list')
-        .select('*')
-        .eq('food_id', foodId)
-        .eq('user_id', user.id)
-        .single();
-    
-    if (existingError && existingError.code !== 'PGRST116') {
-        // PGRST116 is "no rows returned" - which is fine, means no existing item
-        throw existingError;
-    }
-    
-    if (existingItem) {
-        // Item already exists, update the quantity
-        console.log(`📦 Found existing item "${food.name}" with quantity ${existingItem.quantity}, adding ${quantity}`);
-        const { data, error } = await supabase
-            .from('shopping_list')
-            .update({ 
-                quantity: existingItem.quantity + quantity
-            })
-            .eq('id', existingItem.id)
-            .eq('user_id', user.id)
-            .select();
-            
-        if (error) throw error;
-        console.log(`✅ DATABASE: Updated "${food.name}" quantity to ${existingItem.quantity + quantity}`);
-        console.log(`🗄️ DATABASE: Update response:`, data[0]);
-        return data[0];
-    } else {
-        // Item doesn't exist, create new entry
-        console.log(`📦 Adding new item "${food.name}" with quantity ${quantity}`);
-        const { data, error } = await supabase
-            .from('shopping_list')
-            .insert([{ 
-                food_id: foodId, 
-                quantity, 
-                user_id: user.id,
-                name: food.name,
-                brand: food.brand || '',
-                carbs: food.carbs || 0,
-                fat: food.fat || 0,
-                protein: food.protein || 0,
-                category: food.category || 'General'
-            }])
-            .select();
-            
-        if (error) throw error;
-        console.log(`✅ DATABASE: Added new item "${food.name}" to shopping list`);
-        console.log(`🗄️ DATABASE: Insert response:`, data[0]);
-        return data[0];
-    }
+        .insert([shoppingItem])
+        .select();
+        
+    if (error) throw error;
+    return data[0];
 }
 
 export async function loadShoppingListFromDatabase(): Promise<any[]> {
-    // Removed excessive logging for performance
-    if (!supabase) throw new Error('Supabase not initialized');
-    
-    // Get current user
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
-    if (userError || !user) {
-        throw new Error('User must be authenticated to view shopping list');
-    }
-    
-    // Removed excessive logging for performance
+    const user = await getCurrentAuthUser();
+    if (!user) return null;
+
     const { data, error } = await supabase
         .from('shopping_list')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at');
-        
+        .select(`
+            *,
+            food:food_id (
+                name,
+                brand,
+                category,
+                carbs,
+                fat,
+                protein
+            )
+        `)
+        .eq('user_id', user.id);
+
     if (error) {
-        console.error('🗄️ DATABASE: Error querying shopping list:', error);
-        throw error;
+        console.error('Error loading shopping list:', error.message);
+        return null;
     }
-    
-    return data || [];
+
+    const transformedData = data.map(item => ({
+        ...item,
+        checked: item.checked || false
+    }));
+
+    return transformedData;
 }
 
 export async function removeFromShoppingList(id: string): Promise<void> {
@@ -527,4 +574,125 @@ export async function clearAllWeightEntriesFromDatabase(): Promise<void> {
     
     if (error) throw error;
     console.log('✅ Cleared all weight entries for user:', user.id);
+}
+
+// Calculate total macros for a meal based on its ingredients
+export async function calculateMealTotals(
+    ingredients: Array<{
+        food_id: string;
+        quantity: number;
+        serving_unit_id?: string;
+    }>
+): Promise<{
+    totalCalories: number;
+    totalProtein: number;
+    totalFat: number;
+    totalCarbs: number;
+    totalGrams: number;
+    perFoodBreakdown: Array<{
+        food_id: string;
+        name: string;
+        calories: number;
+        protein: number;
+        fat: number;
+        carbs: number;
+        grams: number;
+    }>;
+}> {
+    if (!supabase) throw new Error('Supabase not initialized');
+    
+    const totals = {
+        totalCalories: 0,
+        totalProtein: 0,
+        totalFat: 0,
+        totalCarbs: 0,
+        totalGrams: 0,
+        perFoodBreakdown: [] as any[]
+    };
+    
+    // Process each ingredient
+    for (const ingredient of ingredients) {
+        // Get food data
+        const { data: food } = await supabase
+            .from('foods')
+            .select('*')
+            .eq('id', ingredient.food_id)
+            .single();
+            
+        if (!food) continue;
+        
+        // Get serving unit (default or specified)
+        let servingUnit;
+        if (ingredient.serving_unit_id) {
+            const { data } = await supabase
+                .from('serving_units')
+                .select('*')
+                .eq('id', ingredient.serving_unit_id)
+                .single();
+            servingUnit = data;
+        } else {
+            servingUnit = await getDefaultServingUnit(ingredient.food_id);
+        }
+        
+        // If no serving unit found, assume grams (1g per unit)
+        if (!servingUnit) {
+            servingUnit = { unit_name: 'g', grams_per_unit: 1 };
+        }
+        
+        // Calculate macros for this ingredient
+        const macros = calculateMacrosForServing(food, servingUnit, ingredient.quantity);
+        
+        // Add to totals
+        totals.totalCalories += macros.calories;
+        totals.totalProtein += macros.protein;
+        totals.totalFat += macros.fat;
+        totals.totalCarbs += macros.carbs;
+        totals.totalGrams += macros.totalGrams;
+        
+        // Add to per-food breakdown
+        totals.perFoodBreakdown.push({
+            food_id: ingredient.food_id,
+            name: food.name,
+            calories: macros.calories,
+            protein: macros.protein,
+            fat: macros.fat,
+            carbs: macros.carbs,
+            grams: macros.totalGrams
+        });
+    }
+    
+    // Round all numbers to 2 decimal places
+    totals.totalCalories = Math.round(totals.totalCalories * 100) / 100;
+    totals.totalProtein = Math.round(totals.totalProtein * 100) / 100;
+    totals.totalFat = Math.round(totals.totalFat * 100) / 100;
+    totals.totalCarbs = Math.round(totals.totalCarbs * 100) / 100;
+    totals.totalGrams = Math.round(totals.totalGrams * 100) / 100;
+    
+    return totals;
+}
+
+// Add non-food item to SUNDRIES section of shopping list
+export async function addToSundries(ingredient: any, quantity: number = 1): Promise<any> {
+    if (!supabase) throw new Error('Supabase not initialized');
+    
+    // Get current user
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError || !user) throw new Error('No authenticated user');
+    
+    // Add to shopping list with SUNDRIES category
+    const shoppingItem = {
+        name: ingredient.name,
+        user_id: user.id,
+        quantity: quantity,
+        unit: 'EACH',
+        category: 'SUNDRIES'
+    };
+    
+    const { data, error } = await supabase
+        .from('shopping_list')
+        .insert([shoppingItem])
+        .select();
+        
+    if (error) throw error;
+    return data[0];
 }

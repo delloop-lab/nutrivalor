@@ -6,6 +6,7 @@
     <title>NutriValor - Value your Nutrition</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Poppins:wght@600;700&display=swap" rel="stylesheet">
     <link rel="icon" type="image/x-icon" href="./src/assets/favico.ico">
+    <link rel="stylesheet" href="./src/css/shopping-list.css">
 </head>
 <body>
     <!-- Loading Screen -->
@@ -104,8 +105,8 @@
         <!-- Navigation -->
         <nav class="nav-menu">
             <div class="nav-tabs">
-                <button class="nav-tab active" onclick="showSection('food-tracker')" data-section="food-tracker">
-                    Food Tracker
+                <button class="nav-tab active" onclick="showSection('foods')" data-section="foods">
+                    Foods
                 </button>
                 <button class="nav-tab" onclick="showSection('meals')" data-section="meals">
                     Meals
@@ -113,16 +114,16 @@
                 <button class="nav-tab" onclick="showSection('shopping-list')" data-section="shopping-list">
                     Shopping List
                 </button>
-
                 <button class="nav-tab" onclick="showSection('weekly-meal-plan')" data-section="weekly-meal-plan">
                     Meal Plan
-                </button>
-                <button class="nav-tab" onclick="showSection('macro-calculator')" data-section="macro-calculator">
-                    Macro Calculator
                 </button>
                 <button class="nav-tab" onclick="showSection('weight-tracker')" data-section="weight-tracker">
                     Weight Tracker
                 </button>
+                <button class="nav-tab" onclick="showSection('macro-calculator')" data-section="macro-calculator">
+                    Macro Calculator
+                </button>
+                <button class="nav-tab" onclick="showSection('calculator')" data-section="calculator">Calculator</button>
                 <button class="nav-tab" onclick="showSection('settings')" data-section="settings">
                     Settings
                 </button>
@@ -135,18 +136,9 @@
         <!-- Main Container -->
         <div class="container">
             <!-- Food Tracker Section -->
-            <section id="food-tracker" class="content-section active">
+            <section id="foods" class="content-section active">
                 <div class="section-header">
-                    <h2>Food Tracker</h2>
-                    <div class="section-actions">
-                        <button class="load-btn-color" disabled style="opacity:0.5;cursor:not-allowed;">Load Updated Food Data (Disabled)</button>
-                        <button onclick="handleClearFoodTracker()" class="remove-btn-color">Clear List</button>
-                    </div>
-                </div>
-
-                <!-- Last Update Info -->
-                <div id="lastUpdateInfo" class="last-update-info" style="display: none;">
-                    <span class="last-update-text">Last Update: <span id="lastUpdateDate"></span></span>
+                    <h2>Foods</h2>
                 </div>
 
                 <!-- Category Filters -->
@@ -197,12 +189,19 @@
                 </div>
 
                 <div id="shoppingItems" class="shopping-items">
-                    <p class="empty-state">Your shopping list is empty. Add items from the Food Tracker!</p>
+                    <p class="empty-state">Your shopping list is empty. Add items from the Foods!</p>
                 </div>
 
                 <div id="shoppingTotals" class="shopping-totals" style="display: none;"></div>
             </section>
 
+            <!-- Calculator Section -->
+            <section id="calculator" class="content-section">
+                <div class="section-header">
+                    <h2>Kitchen Conversion Toolkit</h2>
+                </div>
+                <div id="kitchenCalculatorContainer"></div>
+            </section>
 
 
             <!-- Meal Plan Section -->
@@ -652,6 +651,29 @@
                                 <div class="form-card">
                                     <button onclick="openEditFoodModal()" class="primary-btn">Edit Food</button>
                                 </div>
+                                
+                                <!-- CSV Import/Export Section -->
+                                <div class="form-card" style="margin-top: 1rem;">
+                                    <h4>Bulk Edit Foods</h4>
+                                    <p style="font-size: 0.9rem; color: #666; margin-bottom: 1rem;">Export to CSV, edit in spreadsheet, then import back</p>
+                                    <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem;">
+                                        <button onclick="exportFoodsToCSV()" style="flex: 1; padding: 0.75rem; border: none; border-radius: 6px; background-color: #e0f2fe; color: #0277bd; font-weight: 500; cursor: pointer; transition: all 0.2s ease;">Export CSV</button>
+                                        <button onclick="importFoodsFromCSV()" style="flex: 1; padding: 0.75rem; border: none; border-radius: 6px; background-color: #e8f5e8; color: #2e7d32; font-weight: 500; cursor: pointer; transition: all 0.2s ease;">Import CSV</button>
+                                    </div>
+                                    
+                                    <!-- Backup Management -->
+                                    <div style="border-top: 1px solid #eee; padding-top: 1rem;">
+                                        <h6 style="margin: 0 0 0.5rem 0; color: #666;">Backup & Restore</h6>
+                                        <div style="display: flex; gap: 0.5rem;">
+                                            <button onclick="createFoodsBackup()" style="flex: 1; padding: 0.65rem; border: none; border-radius: 6px; background-color: #fff3e0; color: #ef6c00; font-weight: 500; cursor: pointer; transition: all 0.2s ease; font-size: 0.85rem;">Create Backup</button>
+                                            <button onclick="restoreFromBackup()" style="flex: 1; padding: 0.65rem; border: none; border-radius: 6px; background-color: #ffebee; color: #c62828; font-weight: 500; cursor: pointer; transition: all 0.2s ease; font-size: 0.85rem;">Restore Backup</button>
+                                        </div>
+                                        <div id="backupStatus" style="font-size: 0.75rem; color: #888; margin-top: 0.5rem; text-align: center;">
+                                            Auto-backup created before each import
+                                        </div>
+                                    </div>
+                                    <p style="font-size: 0.8rem; color: #888; margin-top: 0.5rem;">💡 Test with a small edit first to verify the process works</p>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -680,6 +702,7 @@
                                                     <option value="LUNCH">Lunch</option>
                                                     <option value="DINNER">Dinner</option>
                                                     <option value="SNACK">Snack</option>
+                                                    <option value="SAUCES">Sauces</option>
                                                     <option value="DESSERT">Dessert</option>
                                                 </select>
                                             </div>
@@ -720,7 +743,7 @@
                                         <div id="ingredientsList" class="ingredient-list">
                                             <!-- Ingredient items will be rendered here -->
                                         </div>
-                                        <button type="button" class="add-ingredient-btn" onclick="window.openIngredientModal('add_to_meal')">+ Add Food to Meal</button>
+                                        <button type="button" class="add-ingredient-btn" onclick="addNewIngredient()">+ Add Ingredient</button>
                                     </div>
                                     <div class="form-actions">
                                         <button type="submit" class="save-btn-color">Create Meal</button>
@@ -807,7 +830,7 @@
     <script type="module" src="/src/main.ts"></script>
 
     <!-- SIMPLE EDIT FOOD MODAL -->
-    <div id="editFoodModal" class="modal">
+    <div id="editFoodModal" class="modal" style="display:none;">
         <div class="modal-content">
             <div class="modal-header">
                 <h3>Edit Food</h3>
@@ -823,22 +846,22 @@
                 </div>
 
                 <!-- Food Edit Form -->
-                <form id="editFoodForm" onsubmit="saveEditedFood(event)" style="display: none;">
-                    <input type="hidden" id="editFoodId">
+                <form id="editFoodForm" style="display: none;">
+                    <input type="hidden" id="editFoodId" name="id">
                     
                     <div class="form-group">
                         <label for="editFoodName">Food Name*</label>
-                        <input type="text" id="editFoodName" required>
+                        <input type="text" id="editFoodName" name="name" required>
                     </div>
                     
                     <div class="form-group">
                         <label for="editFoodBrand">Brand</label>
-                        <input type="text" id="editFoodBrand">
+                        <input type="text" id="editFoodBrand" name="brand">
                     </div>
                     
                     <div class="form-group">
                         <label for="editFoodCategory">Category*</label>
-                        <select id="editFoodCategory" required>
+                        <select id="editFoodCategory" name="category" required>
                             <option value="">Select Category</option>
                             <option value="VEGETABLES">Vegetables</option>
                             <option value="SALAD">Salad</option>
@@ -851,39 +874,32 @@
                     </div>
                     
                     <div class="form-group">
-                        <label for="editFoodServingUnit">Default Serving Unit*</label>
-                        <select id="editFoodServingUnit" required>
-                            <option value="g">g (grams)</option>
-                            <option value="slice">slice</option>
-                            <option value="cup">cup</option>
-                            <option value="tbsp">tbsp (tablespoon)</option>
-                            <option value="tsp">tsp (teaspoon)</option>
-                            <option value="piece">piece</option>
-                            <option value="serving">serving</option>
-                            <option value="oz">oz (ounce)</option>
-                            <option value="ml">ml (milliliter)</option>
-                            <option value="portion">portion</option>
-                        </select>
-                    </div>
-                    
-                    <div class="form-group">
                         <label for="editFoodCarbs">Carbs (g)*</label>
-                        <input type="number" id="editFoodCarbs" min="0" step="0.1" required>
+                        <input type="number" id="editFoodCarbs" name="carbs" min="0" step="0.1" required>
                     </div>
                     
                     <div class="form-group">
                         <label for="editFoodFat">Fat (g)*</label>
-                        <input type="number" id="editFoodFat" min="0" step="0.1" required>
+                        <input type="number" id="editFoodFat" name="fat" min="0" step="0.1" required>
                     </div>
                     
                     <div class="form-group">
                         <label for="editFoodProtein">Protein (g)*</label>
-                        <input type="number" id="editFoodProtein" min="0" step="0.1" required>
+                        <input type="number" id="editFoodProtein" name="protein" min="0" step="0.1" required>
+                    </div>
+                    
+                    <!-- Serving Units Section -->
+                    <div class="form-group">
+                        <label>Serving Units</label>
+                        <div id="servingUnitsList" class="serving-units-list">
+                            <!-- Serving units will be added here -->
+                        </div>
+                        <button type="button" class="secondary-btn" onclick="addServingUnit()">Add Serving Unit</button>
                     </div>
                     
                     <div class="form-group">
                         <label for="editFoodInstructions">Cooking Instructions</label>
-                        <textarea id="editFoodInstructions" rows="8" style="min-height: 200px;"></textarea>
+                        <textarea id="editFoodInstructions" name="instructions" rows="8" style="min-height: 200px;"></textarea>
                     </div>
                     <div class="form-group">
                         <label for="editFoodImage">Food Image</label>
@@ -912,7 +928,7 @@
     </div>
 
     <!-- SIMPLE EDIT MEAL MODAL -->
-    <div id="editMealModal" class="modal">
+    <div id="editMealModal" class="modal" style="display:none;">
         <div class="modal-content">
             <div class="modal-header">
                 <h3>Edit Meal</h3>
@@ -928,7 +944,7 @@
                 </div>
 
                 <!-- Meal Edit Form -->
-                <form id="editMealForm" onsubmit="saveEditedMeal(event)" style="display: none;">
+                <form id="editMealForm" onsubmit="return saveEditedMeal(event)" style="display: none;">
                     <input type="hidden" id="editMealId">
                     
                     <div class="form-group">
@@ -944,6 +960,7 @@
                             <option value="LUNCH">Lunch</option>
                             <option value="DINNER">Dinner</option>
                             <option value="SNACK">Snack</option>
+                            <option value="SAUCES">Sauces</option>
                             <option value="DESSERT">Dessert</option>
                         </select>
                     </div>
@@ -972,10 +989,10 @@
                     <!-- Ingredients Section -->
                     <div class="form-group">
                         <label>Ingredients</label>
-                        <div id="editMealIngredients">
+                        <div id="editMealIngredients" class="ingredients-list">
                             <!-- Ingredients will be added here -->
                         </div>
-                        <button type="button" class="secondary-btn" onclick="addIngredientToMeal()">Add Ingredient</button>
+                        <button type="button" class="add-ingredient-btn" onclick="addNewIngredient()">+ Add Ingredient</button>
                     </div>
                     
                     <div class="form-actions">
@@ -987,5 +1004,35 @@
             </div>
         </div>
     </div>
+
+    <!-- Ingredient Form Template (Hidden) -->
+    <template id="ingredient-form-template">
+        <div class="ingredient-form" style="display: none;">
+            <div class="ingredient-row">
+                <div class="ingredient-select-container">
+                    <select class="ingredient-select">
+                        <option value="egg">Egg (Any)</option>
+                        <!-- Other options will be populated dynamically -->
+                    </select>
+                    <div class="ingredient-macro-pills">
+                        <span class="macro-pill carbs">Carbs: 5.0g</span>
+                        <span class="macro-pill fat">Fat: 25.0g</span>
+                        <span class="macro-pill protein">Protein: 30.0g</span>
+                    </div>
+                </div>
+                <div class="quantity-container">
+                    <input type="number" class="quantity-input" value="5" min="0" step="0.1">
+                </div>
+                <button class="remove-ingredient-btn">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                    </svg>
+                </button>
+                <div class="ingredient-instructions">
+                    <textarea class="instructions-input" placeholder="Enter specific cooking instructions for this ingredient..."></textarea>
+                </div>
+            </div>
+        </div>
+    </template>
 </body>
-</html> 
+</html>

@@ -727,7 +727,6 @@ export async function isCurrentUserSuperAdmin(): Promise<boolean> {
     }
     
     const role = data?.role || 'user';
-    console.log('🔐 User role:', role);
     return role === 'super_admin';
   } catch (error) {
     console.error('Error checking super admin status:', error);

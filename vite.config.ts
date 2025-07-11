@@ -29,7 +29,6 @@ export default defineConfig({
       closeBundle: async () => {
         try {
           await copy(resolve(__dirname, 'images'), resolve(__dirname, 'dist/images'))
-          console.log('✅ Images folder copied to dist')
         } catch (error) {
           console.error('❌ Error copying images:', error)
         }

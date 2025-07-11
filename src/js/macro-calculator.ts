@@ -1,6 +1,7 @@
 // Macro Calculator Module for NutriValor
 import { getCurrentAuthUser } from './auth';
 import { loadProfileFromDatabase } from './database';
+import { supabase } from './supabase-client';
 
 interface MacroProfile {
   age: number;
@@ -112,14 +113,11 @@ async function loadSavedProfile(): Promise<void> {
     if (savedProfile) {
       try {
         const profile: MacroProfile = JSON.parse(savedProfile);
-        console.log('📦 Found localStorage macro profile:', profile);
         
         // Only populate fields that aren't already set from user profile
         if (!userProfile) {
-          console.log('⚠️ No Supabase profile, using full localStorage profile');
           populateForm(profile);
         } else {
-          console.log('✅ Using Supabase profile + localStorage macro settings');
           // Populate only macro-specific fields (not personal data like age, height, gender, weight)
           const weightInput = document.getElementById('macro-weight') as HTMLInputElement;
           const activitySelect = document.getElementById('macro-activity') as HTMLSelectElement;
@@ -134,16 +132,15 @@ async function loadSavedProfile(): Promise<void> {
           if (fatRatioSelect) fatRatioSelect.value = profile.fatRatio.toString();
           
           // Don't load weight from localStorage - let user enter it manually
-          console.log('ℹ️ Skipped loading weight from localStorage - user should enter manually');
         }
       } catch (error) {
-        console.error('Error loading saved macro profile:', error);
+        // Removed excessive logging for performance
       }
     } else {
       // Removed excessive logging for performance
     }
   } catch (error) {
-    console.error('Error loading profile from database:', error);
+    // Removed excessive logging for performance
     // Fall back to local macro profile only
     const user = getCurrentAuthUser();
     const userId = user?.id || 'anonymous';
@@ -154,7 +151,7 @@ async function loadSavedProfile(): Promise<void> {
         const profile: MacroProfile = JSON.parse(savedProfile);
         populateForm(profile);
       } catch (error) {
-        console.error('Error loading saved macro profile:', error);
+        // Removed excessive logging for performance
       }
     }
   }
@@ -343,7 +340,7 @@ export function saveMacroProfile(): void {
     localStorage.setItem(`macroProfile_${userId}`, JSON.stringify(profile));
     showMessage('Macro profile saved successfully!', 'success');
   } catch (error) {
-    console.error('Error saving macro profile:', error);
+    // Removed excessive logging for performance
     showMessage('Error saving macro profile', 'error');
   }
 }
@@ -437,29 +434,16 @@ function removeProfileIndicator(element: HTMLElement): void {
 
 // Refresh macro calculator data (useful when profile is updated)
 export async function refreshMacroCalculator(): Promise<void> {
-  console.log('🔄 Refreshing macro calculator data...');
-  await loadSavedProfile();
-  
-  // Recheck if tip should be shown/hidden after refresh
-  setTimeout(() => {
-    const ageInput = document.getElementById('macro-age') as HTMLInputElement;
-    const genderSelect = document.getElementById('macro-gender') as HTMLSelectElement;
-    const heightInput = document.getElementById('macro-height') as HTMLInputElement;
+  try {
+    // Refresh macro calculator data
+    await loadSavedProfile();
+    calculateMacros();
     
-    const missingFields = [];
-    if (!ageInput?.value) missingFields.push('Age');
-    if (!genderSelect?.value || genderSelect?.value === '') missingFields.push('Gender');
-    if (!heightInput?.value) missingFields.push('Height');
-    
-    if (missingFields.length > 0) {
-      const missingText = missingFields.join(', ');
-      showPersistentProfileTip(`💡 Tip: Fill out your profile in Settings to auto-populate ${missingText}`);
-    } else {
-      hidePersistentProfileTip();
-    }
-  }, 100);
-  
-  console.log('✅ Macro calculator refreshed');
+    // Macro calculator refreshed
+  } catch (error) {
+    // Removed excessive logging for performance
+    showMessage('Error refreshing calculator', 'error');
+  }
 }
 
 // Make functions globally available

@@ -654,22 +654,37 @@ button {
 
 .food-actions {
     display: flex;
-    gap: 12px;
+    justify-content: space-between;
     align-items: center;
-    margin-top: auto;
-    width: 100%;
+    margin-top: 1rem;
+    gap: 0.5rem;
+}
+
+.quantity-unit-group {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-right: 8px;
 }
 
 .quantity-input {
-    width: 70px;
-    padding: 10px;
+    width: 80px;
+    height: 44px;
+    padding: 8px 12px;
     border: 2px solid #e2e8f0;
     border-radius: 10px;
     font-size: 14px;
-    background: rgba(255, 255, 255, 0.8);
-    color: #1e293b;
+    font-family: 'Inter', sans-serif;
     font-weight: 600;
+    color: #1e293b;
+    background-color: white;
     transition: all 0.3s ease;
+    text-align: center;
+}
+
+.quantity-input:hover {
+    border-color: #c7d2fe;
+    background-color: rgba(255, 255, 255, 1);
 }
 
 .quantity-input:focus {
@@ -678,19 +693,41 @@ button {
     box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 }
 
-.serving-unit {
-    font-size: 14px;
-    font-weight: 600;
-    color: #64748b;
-    background: rgba(100, 116, 139, 0.1);
-    padding: 8px 12px;
-    border-radius: 8px;
-    border: 1px solid rgba(100, 116, 139, 0.2);
-    min-width: 35px;
-    text-align: center;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+/* Remove spinner buttons from number input */
+.quantity-input::-webkit-outer-spin-button,
+.quantity-input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+.quantity-input[type=number] {
+    -moz-appearance: textfield;
+}
+
+.serving-unit-select {
+    min-width: 80px;
+    padding: 0.25rem;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    background-color: white;
+}
+
+.quantity-input:focus,
+.serving-unit-select:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 2px rgba(var(--primary-rgb), 0.1);
+}
+
+.serving-unit-select:hover {
+    border-color: #c7d2fe;
+    background-color: rgba(255, 255, 255, 1);
+}
+
+.serving-unit-select:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 }
 
 .add-btn {
@@ -2701,11 +2738,25 @@ body {
 }
 
 .shopping-item .nutrition-info span {
+    font-weight: 700;
+    border-radius: 8px;
+    padding: 4px 12px;
     font-size: 12px;
-    padding: 2px 6px;
-    border-radius: 4px;
-    background: #f3f4f6;
-    color: #374151;
+}
+
+.shopping-item .nutrition-info span:nth-child(1) {
+    color: #3b82f6;
+    background: rgba(59, 130, 246, 0.1);
+}
+
+.shopping-item .nutrition-info span:nth-child(2) {
+    color: #ef4444;
+    background: rgba(239, 68, 68, 0.1);
+}
+
+.shopping-item .nutrition-info span:nth-child(3) {
+    color: #f59e0b;
+    background: rgba(245, 158, 11, 0.1);
 }
 
 .shopping-item .item-controls {
@@ -3052,6 +3103,34 @@ body {
     padding: 40px;
     color: #64748b;
     font-style: italic;
+}
+
+.no-users {
+    text-align: center;
+    padding: 40px;
+    color: #64748b;
+    font-style: italic;
+}
+
+/* Admin message styles */
+.message {
+    padding: 12px 16px;
+    border-radius: 8px;
+    margin-bottom: 16px;
+    font-weight: 600;
+    display: none;
+}
+
+.message.success {
+    background: rgba(16, 185, 129, 0.1);
+    color: #059669;
+    border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.message.error {
+    background: rgba(239, 68, 68, 0.1);
+    color: #dc2626;
+    border: 1px solid rgba(239, 68, 68, 0.2);
 }
 
 .error-message {
@@ -3427,55 +3506,93 @@ body {
 }
 
 .ingredient-row {
-    display: grid;
-    grid-template-columns: 2fr 1fr 2fr auto;
-    gap: 1.25rem;
-    align-items: end;
-    padding: 1.25rem;
-    background: white;
-    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 12px;
     border: 1px solid #e5e7eb;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-}
-
-.ingredient-row .input-group {
-    margin: 0;
-}
-
-.ingredient-row .input-group label {
-    display: block;
-    margin-bottom: 0.5rem;
-    color: #374151;
-    font-weight: 500;
-    font-size: 0.875rem;
-}
-
-.ingredient-row select,
-.ingredient-row input {
-    margin: 0;
-    padding: 0.875rem;
-    border: 2px solid #e5e7eb;
     border-radius: 8px;
-    font-size: 0.9rem;
+    margin-bottom: 12px;
     background: white;
-    color: var(--text-color);
-    transition: all 0.2s ease;
-    font-family: inherit;
-    width: 100%;
-    box-sizing: border-box;
 }
 
-.ingredient-row select:focus,
-.ingredient-row input:focus {
-    outline: none;
-    border-color: var(--primary-color);
-    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-    transform: translateY(-1px);
+.ingredient-controls {
+    display: flex;
+    gap: 12px;
+    align-items: center;
 }
 
-.ingredient-row select:hover,
-.ingredient-row input:hover {
-    border-color: #d1d5db;
+.ingredient-select {
+    flex: 1;
+    padding: 8px;
+    border: 1px solid #e5e7eb;
+    border-radius: 4px;
+    font-size: 14px;
+    color: #374151;
+}
+
+.ingredient-quantity {
+    width: 80px;
+    padding: 8px;
+    border: 1px solid #e5e7eb;
+    border-radius: 4px;
+    font-size: 14px;
+    color: #374151;
+}
+
+.remove-ingredient {
+    padding: 8px 12px;
+    background: #ef4444;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background-color 0.2s;
+}
+
+.remove-ingredient:hover {
+    background: #dc2626;
+}
+
+.food-details {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    padding: 8px;
+    background: #f9fafb;
+    border-radius: 6px;
+}
+
+.food-image {
+    width: 60px;
+    height: 60px;
+    object-fit: cover;
+    border-radius: 4px;
+}
+
+.food-info {
+    flex: 1;
+}
+
+.food-name {
+    font-weight: 600;
+    color: #1f2937;
+    margin-bottom: 4px;
+}
+
+.food-macros {
+    display: flex;
+    gap: 12px;
+    font-size: 13px;
+    color: #6b7280;
+}
+
+.food-macros span {
+    background: #f3f4f6;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-weight: 500;
 }
 
 .instructions-input {
@@ -5164,4 +5281,295 @@ textarea[onchange*="updateIngredientInstructions"]:focus {
 .verification-actions .secondary-btn:hover {
     background: #f8fafc;
     border-color: #cbd5e0;
+}
+
+/* Serving Units Styles */
+.serving-units-list {
+    margin-bottom: 1rem;
+    max-height: 300px;
+    overflow-y: auto;
+    padding: 0.5rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 0.5rem;
+    background-color: #f8fafc;
+}
+
+.serving-unit-item {
+    display: grid;
+    grid-template-columns: 1fr 1fr auto;
+    gap: 1rem;
+    align-items: center;
+    padding: 0.75rem;
+    margin-bottom: 0.75rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 0.5rem;
+    background-color: white;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    transition: all 0.2s;
+}
+
+.serving-unit-item:hover {
+    border-color: #cbd5e1;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.serving-unit-item input {
+    width: 100%;
+    padding: 0.5rem;
+    border: 1px solid #cbd5e1;
+    border-radius: 0.375rem;
+    background-color: white;
+    transition: border-color 0.2s;
+}
+
+.serving-unit-item input:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+}
+
+.serving-unit-item .unit-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.serving-unit-item .default-unit-checkbox {
+    width: auto;
+    margin-right: 0.25rem;
+}
+
+.serving-unit-item .remove-unit-btn {
+    padding: 0.25rem 0.5rem;
+    background-color: #ef4444;
+    color: white;
+    border: none;
+    border-radius: 0.375rem;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.serving-unit-item .remove-unit-btn:hover {
+    background-color: #dc2626;
+}
+
+/* Shopping list quantity input styling */
+.shopping-item .item-quantity {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 4px;
+}
+
+.shopping-item .item-quantity input[type="number"] {
+    width: 60px;
+    padding: 4px 8px;
+    border: 1px solid #e5e7eb;
+    border-radius: 4px;
+    font-size: 14px;
+    font-weight: 500;
+    color: #374151;
+    background: white;
+    -moz-appearance: textfield;
+}
+
+.shopping-item .item-quantity input[type="number"]::-webkit-outer-spin-button,
+.shopping-item .item-quantity input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+.shopping-item .item-quantity input[type="number"]:hover {
+    border-color: #d1d5db;
+}
+
+.shopping-item .item-quantity input[type="number"]:focus {
+    outline: none;
+    border-color: #6366f1;
+    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.1);
+}
+
+.shopping-item .unit-name {
+    font-size: 14px;
+    color: #6b7280;
+    font-weight: 500;
+}
+
+.macro-totals {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-top: 8px;
+}
+
+.macro-total {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 14px;
+    color: #374151;
+    background: #f9fafb;
+    padding: 4px 8px;
+    border-radius: 4px;
+    border: 1px solid #e5e7eb;
+}
+
+.macro-label {
+    font-weight: 500;
+    color: #6b7280;
+}
+
+.macro-value {
+    font-weight: 600;
+    color: #374151;
+}
+
+.totals-header {
+    font-size: 16px;
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 4px;
+}
+
+.shopping-item .macro-info {
+    display: flex;
+    gap: 12px;
+    font-size: 12px;
+    color: #6b7280;
+    margin-top: 4px;
+}
+
+.shopping-item .macro-info span {
+    background: #f3f4f6;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-weight: 500;
+}
+
+.shopping-item .remove-btn {
+    background: #ef4444;
+    color: white;
+    border: none;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.shopping-item .remove-btn:hover {
+    background: #dc2626;
+}
+
+.ingredients-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.add-ingredient-btn {
+    background: #4f46e5;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: fit-content;
+}
+
+.add-ingredient-btn:hover {
+    background: #4338ca;
+}
+
+.ingredient-row {
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 16px;
+}
+
+.ingredient-controls {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+}
+
+.ingredient-select {
+    flex: 1;
+    padding: 8px;
+    border: 1px solid #e5e7eb;
+    border-radius: 4px;
+    font-size: 14px;
+    color: #374151;
+}
+
+.ingredient-quantity {
+    width: 80px;
+    padding: 8px;
+    border: 1px solid #e5e7eb;
+    border-radius: 4px;
+    font-size: 14px;
+    color: #374151;
+}
+
+.remove-ingredient {
+    padding: 8px 12px;
+    background: #ef4444;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background-color 0.2s;
+}
+
+.remove-ingredient:hover {
+    background: #dc2626;
+}
+
+.food-details {
+    margin-top: 12px;
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+}
+
+.food-image {
+    width: 80px;
+    height: 80px;
+    object-fit: cover;
+    border-radius: 4px;
+}
+
+.food-info {
+    flex: 1;
+}
+
+.food-name {
+    font-size: 16px;
+    font-weight: 500;
+    color: #111827;
+    margin-bottom: 4px;
+}
+
+.food-macros {
+    display: flex;
+    gap: 12px;
+    font-size: 14px;
+    color: #6b7280;
+}
+
+.food-macros span {
+    background: #f3f4f6;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-weight: 500;
 }

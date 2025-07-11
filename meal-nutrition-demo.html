@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meal Nutrition Calculator Demo</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 20px;
+        }
+        .meal-card {
+            border: 1px solid #ddd;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        .food-item {
+            margin: 10px 0;
+            padding: 10px;
+            background-color: #f9f9f9;
+            border-radius: 4px;
+        }
+        .results {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #e9ecef;
+            border-radius: 4px;
+        }
+        .breakdown {
+            margin-top: 15px;
+            padding-left: 20px;
+        }
+        h3 {
+            color: #2c3e50;
+        }
+    </style>
+</head>
+<body>
+    <h1>Meal Nutrition Calculator Demo</h1>
+    
+    <div class="meal-card">
+        <h2>Bacon and Eggs</h2>
+        <div class="food-item">
+            <h3>Bacon</h3>
+            <p>Quantity: 3 slices (17g per slice)</p>
+            <p>Per 100g: 541 cal, 37g protein, 42g fat, 1.4g carbs</p>
+        </div>
+        <div class="food-item">
+            <h3>Eggs</h3>
+            <p>Quantity: 2 each</p>
+            <p>Per egg: 6g protein, 5g fat, 1g carbs</p>
+        </div>
+    </div>
+
+    <button onclick="calculateMeal()">Calculate Meal Nutrients</button>
+
+    <div id="results" class="results">
+        Results will appear here...
+    </div>
+
+    <script type="module">
+        import { calculateMealNutrients } from './src/utils/meal-nutrition-service.ts';
+
+        // Sample meal data
+        const baconAndEggsMeal = {
+            name: "Bacon and Eggs",
+            foods: [
+                {
+                    name: "Bacon",
+                    macrosPer100g: {
+                        calories: 541,
+                        protein: 37,
+                        fat: 42,
+                        carbs: 1.4
+                    },
+                    unit: {
+                        name: "slice",
+                        gramsPerUnit: 17
+                    },
+                    quantity: 3
+                },
+                {
+                    name: "Eggs",
+                    macrosPer100g: {
+                        calories: (5 * 9 + 6 * 4 + 1 * 4), // fat*9 + protein*4 + carb*4
+                        protein: 6,  // 6g protein per egg
+                        fat: 5,      // 5g fat per egg
+                        carbs: 1     // 1g carb per egg
+                    },
+                    unit: {
+                        name: "each"
+                    },
+                    quantity: 2
+                }
+            ]
+        };
+
+        // Make calculate function available globally
+        window.calculateMeal = function() {
+            try {
+                const results = calculateMealNutrients(baconAndEggsMeal);
+                
+                // Display results
+                document.getElementById('results').innerHTML = `
+                    <h3>Total Meal Nutrients:</h3>
+                    <p>Calories: ${results.calories.toFixed(1)}</p>
+                    <p>Protein: ${results.protein.toFixed(1)}g</p>
+                    <p>Fat: ${results.fat.toFixed(1)}g</p>
+                    <p>Carbs: ${results.carbs.toFixed(1)}g</p>
+
+                    <h3>Breakdown by Food:</h3>
+                    ${results.foodBreakdown.map(food => `
+                        <div class="breakdown">
+                            <h4>${food.foodName}</h4>
+                            <p>Serving Size: ${food.foodName === 'Eggs' 
+                                ? `EACH (x ${food.quantity})`
+                                : `${food.nutrients.totalGrams.toFixed(1)}g`
+                            }</p>
+                            <p>Calories: ${food.nutrients.calories.toFixed(1)}</p>
+                            <p>Protein: ${food.nutrients.protein.toFixed(1)}g</p>
+                            <p>Fat: ${food.nutrients.fat.toFixed(1)}g</p>
+                            <p>Carbs: ${food.nutrients.carbs.toFixed(1)}g</p>
+                        </div>
+                    `).join('')}
+                `;
+            } catch (error) {
+                document.getElementById('results').innerHTML = `
+                    <p style="color: red;">Error: ${error.message}</p>
+                `;
+            }
+        };
+    </script>
+</body>
+</html> 
