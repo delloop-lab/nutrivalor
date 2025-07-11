@@ -434,7 +434,6 @@ function generateMealCardHTML(meal: Meal): string {
                                 <span class="ingredient-fat">${formatNutrition(fat)}g fat</span>
                                 <span class="ingredient-protein">${formatNutrition(protein)}g protein</span>
                             </div>
-                            ${ing.instructions ? `<div class="ingredient-instructions">${ing.instructions}</div>` : ''}
                         </div>
                     `;
                 }).join('')}
