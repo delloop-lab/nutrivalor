@@ -169,12 +169,15 @@ export async function grantAdminRole(userId: string): Promise<void> {
     // Update user role
     const { error } = await supabase
       .from('user_roles')
-      .upsert({
-        user_id: userId,
-        role: 'admin',
-        granted_by: currentUser.id,
-        granted_at: new Date().toISOString()
-      });
+      .upsert(
+        {
+          user_id: userId,
+          role: 'admin',
+          granted_by: currentUser.id,
+          granted_at: new Date().toISOString()
+        },
+        { onConflict: 'user_id' }
+      );
     
     if (error) throw error;
     
@@ -182,7 +185,8 @@ export async function grantAdminRole(userId: string): Promise<void> {
     await refreshUserList();
     
   } catch (error) {
-    showMessage('Error granting admin role', 'error');
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    showMessage(`Error granting admin role: ${message}`, 'error');
   }
 }
 
@@ -205,12 +209,15 @@ export async function revokeAdminRole(userId: string): Promise<void> {
     // Update user role back to user
     const { error } = await supabase
       .from('user_roles')
-      .upsert({
-        user_id: userId,
-        role: 'user',
-        granted_by: currentUser.id,
-        granted_at: new Date().toISOString()
-      });
+      .upsert(
+        {
+          user_id: userId,
+          role: 'user',
+          granted_by: currentUser.id,
+          granted_at: new Date().toISOString()
+        },
+        { onConflict: 'user_id' }
+      );
     
     if (error) throw error;
     
@@ -218,7 +225,8 @@ export async function revokeAdminRole(userId: string): Promise<void> {
     await refreshUserList();
     
   } catch (error) {
-    showMessage('Error revoking admin role', 'error');
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    showMessage(`Error revoking admin role: ${message}`, 'error');
   }
 }
 
@@ -314,6 +322,45 @@ async function handleAddMeal(event: Event): Promise<void> {
     const totalFat = currentMealIngredients.reduce((sum, ing) => sum + (ing.fat || 0), 0);
     const totalProtein = currentMealIngredients.reduce((sum, ing) => sum + (ing.protein || 0), 0);
 
+    // Get user's display name from profile
+    let createdBy = 'Unknown User';
+    try {
+      const { data: profile } = await supabase
+        .from('user_profiles')
+        .select('name')
+        .eq('user_id', user.id)
+        .single();
+      
+      createdBy = profile?.name || user.email || 'Unknown User';
+    } catch (error) {
+      // Fallback to email if profile doesn't exist
+      createdBy = user.email || 'Unknown User';
+    }
+
+    // Handle image upload
+    let imageUrl = null;
+    let picture = null;
+    const mealPictureFile = document.getElementById('mealPictureFile') as HTMLInputElement;
+    
+    if (mealPictureFile && mealPictureFile.files && mealPictureFile.files[0]) {
+      const file = mealPictureFile.files[0];
+      const fileExt = file.name.split('.').pop();
+      const fileName = `meal_${Date.now()}_${Math.random().toString(36).substring(2)}.${fileExt}`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from('meal-images')
+        .upload(fileName, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('meal-images')
+        .getPublicUrl(fileName);
+
+      imageUrl = publicUrl;
+      picture = fileName;
+    }
+
     const mealData = {
       number: `M${Date.now()}`,
       name: mealName.trim(),
@@ -324,7 +371,9 @@ async function handleAddMeal(event: Event): Promise<void> {
       total_fat: totalFat,
       total_protein: totalProtein,
       user_id: user.id,
-      created_by: user.email,
+      created_by: createdBy,
+      image_url: imageUrl,
+      picture: picture,
     };
 
     const { data: newMeal, error: mealError } = await supabase

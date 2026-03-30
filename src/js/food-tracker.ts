@@ -67,7 +67,7 @@ async function loadShoppingListData(): Promise<void> {
     const dbShoppingList = await loadShoppingListFromDatabase();
     shoppingList = dbShoppingList || [];
     // Removed excessive logging for performance
-    updateShoppingListDisplay();
+    // updateShoppingListDisplay(); // COMMENTED OUT: Legacy shopping list system
   } catch (error) {
     // Removed excessive logging for performance
     shoppingList = []; // Initialize as empty array on error
@@ -885,7 +885,7 @@ export async function removeFromShoppingList(foodId: string, fromFoodCard: boole
         item.food_id !== foodId
       );
       
-      updateShoppingListDisplay();
+      // updateShoppingListDisplay(); // COMMENTED OUT: Legacy shopping list system
       
       // Always refresh the food display to update button states
       displayFoods(allFoods.filter(food => {
@@ -916,6 +916,8 @@ export async function removeFromShoppingList(foodId: string, fromFoodCard: boole
   }
 }
 
+// COMMENTED OUT: Legacy shopping list display system - replaced by shopping-list.ts
+/*
 // Update shopping list display
 export function updateShoppingListDisplay(): void {
     const container = document.getElementById('shoppingItems');
@@ -980,21 +982,19 @@ export function updateShoppingListDisplay(): void {
     // Update totals
     updateShoppingListTotals();
 }
+*/
 
+// COMMENTED OUT: Legacy shopping list totals system - replaced by shopping-list.ts
+/*
 function updateShoppingListTotals(): void {
     const totalsContainer = document.getElementById('shoppingTotals');
     if (!totalsContainer) return;
 
-    // Calculate totals
+    // Calculate totals - just sum the per-100g values without multiplying by quantity
     const totals = shoppingList.reduce((acc: any, item: any) => {
-        const quantity = item.quantity || 0;
-        const gramsPerUnit = item.grams_per_unit || 1;
-        const totalGrams = quantity * gramsPerUnit;
-        const multiplier = totalGrams / 100; // Convert to per 100g basis
-
-        acc.carbs += (item.carbs || 0) * multiplier;
-        acc.fat += (item.fat || 0) * multiplier;
-        acc.protein += (item.protein || 0) * multiplier;
+        acc.carbs += (item.carbs || 0);
+        acc.fat += (item.fat || 0);
+        acc.protein += (item.protein || 0);
         return acc;
     }, { carbs: 0, fat: 0, protein: 0 });
 
@@ -1025,6 +1025,7 @@ function updateShoppingListTotals(): void {
 
     totalsContainer.style.display = 'block';
 }
+*/
 
 // Force refresh shopping list data (clears orphaned data)
 async function forceRefreshShoppingList(): Promise<void> {
@@ -1068,7 +1069,7 @@ export async function clearShoppingList(): Promise<void> {
       // Removed excessive logging for performance
     }
     
-    updateShoppingListDisplay();
+    // updateShoppingListDisplay(); // COMMENTED OUT: Legacy shopping list system
     
     // Refresh the food display to update all button states
     displayFoods(allFoods.filter(food => {
@@ -1114,7 +1115,7 @@ window.handleRemoveFromShoppingList = handleRemoveFromShoppingList;
 window.filterByCategory = filterByCategory;
 window.clearShoppingList = clearShoppingList;
 window.handleClearShoppingList = handleClearShoppingList;
-window.updateShoppingListDisplay = updateShoppingListDisplay;
+// window.updateShoppingListDisplay = updateShoppingListDisplay; // COMMENTED OUT: Legacy shopping list system
 window.reloadShoppingListFromDatabase = reloadShoppingListFromDatabase;
 window.loadAndDisplayFoods = loadAndDisplayFoods;
 window.editFood = editFood;
@@ -1124,7 +1125,7 @@ window.updateServingUnit = updateServingUnit;
 // Debug function for console use
 (window as any).debugShoppingList = function() {
   // Debug function removed for production
-  updateShoppingListDisplay();
+  // updateShoppingListDisplay(); // COMMENTED OUT: Legacy shopping list system
 };
 
 (window as any).forceFixShoppingList = function() {

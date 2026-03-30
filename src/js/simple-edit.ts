@@ -1101,7 +1101,6 @@ export async function saveEditedMeal(event: Event) {
                 total_carbs: Math.round(totalCarbs * 100) / 100,
                 total_fat: Math.round(totalFat * 100) / 100,
                 total_protein: Math.round(totalProtein * 100) / 100,
-                image_url: imageUrl,
                 picture,
                 updated_at: new Date().toISOString()
             })

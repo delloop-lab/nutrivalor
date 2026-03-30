@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Supabase Connection Test</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+    <h1>Supabase Connection Test</h1>
+    <div id="status">Testing connection...</div>
+    <div id="details"></div>
+
+    <script>
+        const SUPABASE_URL = 'https://ehutpsrutyiorhqrwstz.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVodXRwc3J1dHlpb3JocXJ3c3R6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTExMTMyNzQsImV4cCI6MjA2NjY4OTI3NH0.lcfz59Uc2S6q9Mn2lj2OC_WAMG5CncrNbEnHX7MFTeI';
+
+        async function testConnection() {
+            const statusDiv = document.getElementById('status');
+            const detailsDiv = document.getElementById('details');
+
+            try {
+                // Test 1: Create Supabase client
+                statusDiv.textContent = 'Creating Supabase client...';
+                const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+                
+                // Test 2: Try to access the database
+                statusDiv.textContent = 'Testing database access...';
+                const { data, error } = await supabase.from('foods').select('count').limit(1);
+                
+                if (error) {
+                    if (error.code === 'PGRST116') {
+                        statusDiv.textContent = '✅ Connection successful! (Tables not created yet)';
+                        detailsDiv.innerHTML = `
+                            <p><strong>Status:</strong> Database is accessible but tables need to be created.</p>
+                            <p><strong>Solution:</strong> Run the SQL script from setup-database.sql in your Supabase dashboard.</p>
+                        `;
+                    } else {
+                        statusDiv.textContent = '❌ Database error: ' + error.message;
+                        detailsDiv.innerHTML = `<p><strong>Error:</strong> ${error.message}</p>`;
+                    }
+                } else {
+                    statusDiv.textContent = '✅ Connection successful!';
+                    detailsDiv.innerHTML = '<p><strong>Status:</strong> Database is working correctly.</p>';
+                }
+                
+            } catch (error) {
+                statusDiv.textContent = '❌ Connection failed';
+                detailsDiv.innerHTML = `
+                    <p><strong>Error:</strong> ${error.message}</p>
+                    <p><strong>Possible causes:</strong></p>
+                    <ul>
+                        <li>Supabase project is paused or deleted</li>
+                        <li>Network connectivity issues</li>
+                        <li>Incorrect URL or API key</li>
+                    </ul>
+                `;
+            }
+        }
+
+        // Run the test when page loads
+        testConnection();
+    </script>
+</body>
+</html>
+

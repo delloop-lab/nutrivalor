@@ -1,0 +1,36 @@
+const __vite__mapDeps=(i,m=__vite__mapDeps,d=(m.f||(m.f=["assets/main-C2NuN4fr.js","assets/main-BPYRP2Gd.css"])))=>i.map(i=>d[i]);
+import{_ as S,a as k,s as l,i as g,g as f,c as u,r as I}from"./main-C2NuN4fr.js";let R=!1;async function H(){try{await P(),R||(O(),R=!0);const{setupFoodTrackerEventListeners:e}=await S(async()=>{const{setupFoodTrackerEventListeners:t}=await import("./main-C2NuN4fr.js").then(r=>r.f);return{setupFoodTrackerEventListeners:t}},__vite__mapDeps([0,1]));e(),await T()}catch{o("Error initializing admin panel","error")}}async function T(){try{if(!await g()){const t=document.querySelector(".admin-card");t&&(t.style.display="none");return}await p(),await A()}catch(e){console.error("❌ Error initializing user management:",e)}}async function p(){try{if(!await g())return;const{data:t,error:r}=await l.from("user_roles").select("user_id").limit(1);if(r&&r.code==="PGRST200"){const i=document.getElementById("userListContainer");i&&(i.innerHTML=`
+          <div class="setup-message">
+            <h3>🛠️ Database Setup Required</h3>
+            <p>The user management system needs to be set up in your database.</p>
+            <div class="setup-steps">
+              <h4>Steps to complete setup:</h4>
+              <ol>
+                <li>Go to your Supabase Dashboard</li>
+                <li>Navigate to the SQL Editor</li>
+                <li>Run the <code>create-user-roles-table.sql</code> script</li>
+                <li>Run the <code>setup-super-admin.sql</code> script</li>
+                <li>Refresh this page</li>
+              </ol>
+            </div>
+            <button onclick="refreshUserList()" class="btn btn-primary">Retry After Setup</button>
+          </div>
+        `);return}const{data:n,error:a}=await l.rpc("get_admin_user_list");if(a)throw a;await F(n||[])}catch{o("Error loading users","error")}}async function F(e){const t=document.getElementById("userListContainer");if(!t)return;if(e.length===0){t.innerHTML='<div class="no-users">No users found</div>';return}const r=e.map(n=>{const a=n.role||"user",i=n.email&&n.email.length>0,c=n.created_at?new Date(n.created_at).toLocaleDateString():"Unknown",w=n.last_sign_in_at?new Date(n.last_sign_in_at).toLocaleDateString():"Never";return`
+      <div class="user-item">
+        <div class="user-info">
+          <div class="user-email">${n.email||"Unknown"}</div>
+          <div class="user-meta">
+            <span class="user-status ${i?"confirmed":"pending"}">
+              ${i?"Confirmed":"Pending"}
+            </span>
+            <span class="user-join-date">Joined: ${c}</span>
+            <span class="user-last-login">Last login: ${w}</span>
+          </div>
+        </div>
+        <div class="user-role-section">
+          <span class="current-role ${a}">${a.replace("_","-")}</span>
+          ${a==="user"?`<button class="role-btn grant" onclick="grantAdminRole('${n.user_id}')">Grant Admin</button>`:`<button class="role-btn revoke" onclick="revokeAdminRole('${n.user_id}')">Revoke Admin</button>`}
+        </div>
+      </div>
+    `}).join("");t.innerHTML=r}async function B(e){try{if(!await g()){o("Only super admins can grant admin roles","error");return}const r=await f();if(!r){o("You must be logged in to perform this action","error");return}const{error:n}=await l.from("user_roles").upsert({user_id:e,role:"admin",granted_by:r.id,granted_at:new Date().toISOString()},{onConflict:"user_id"});if(n)throw n;o("Admin role granted successfully","success"),await p()}catch(t){const r=t instanceof Error?t.message:"Unknown error";o(`Error granting admin role: ${r}`,"error")}}async function N(e){try{if(!await g()){o("Only super admins can revoke admin roles","error");return}const r=await f();if(!r){o("You must be logged in to perform this action","error");return}const{error:n}=await l.from("user_roles").upsert({user_id:e,role:"user",granted_by:r.id,granted_at:new Date().toISOString()},{onConflict:"user_id"});if(n)throw n;o("Admin role revoked successfully","success"),await p()}catch(t){const r=t instanceof Error?t.message:"Unknown error";o(`Error revoking admin role: ${r}`,"error")}}async function A(){try{let e="user";try{const{getCurrentUserRole:r}=await S(async()=>{const{getCurrentUserRole:n}=await import("./main-C2NuN4fr.js").then(a=>a.b);return{getCurrentUserRole:n}},__vite__mapDeps([0,1]));e=await r()}catch{try{const n=await f();if(n){const{data:a,error:i}=await l.from("user_roles").select("role").eq("user_id",n.id).single();!i&&a&&(e=a.role)}}catch{}}const t=document.getElementById("currentUserRole");if(t){const r=e.replace("_"," ").toUpperCase();t.textContent=r,t.className=`role-badge ${e}`}}catch{const t=document.getElementById("currentUserRole");t&&(t.textContent="ERROR",t.className="role-badge error")}}async function P(){if(!(k.length>0))try{const{data:e,error:t}=await l.from("foods").select("*").order("name");if(t)throw t;k.push(...e||[])}catch{}}function O(){const e=document.getElementById("addMealForm");e&&(e.addEventListener("submit",q),e.addEventListener("reset",x))}async function q(e){e.preventDefault();const t=e.target,r=new FormData(t);try{const n=r.get("mealName"),a=r.get("mealType"),i=r.get("cookingInstructions"),c=await f();if(!c)throw new Error("You must be logged in to create a meal.");if(u.length===0){o("Please add at least one ingredient.","error");return}const w=u.reduce((s,d)=>s+(d.carbs||0),0),M=u.reduce((s,d)=>s+(d.fat||0),0),D=u.reduce((s,d)=>s+(d.protein||0),0);let y="Unknown User";try{const{data:s}=await l.from("user_profiles").select("name").eq("user_id",c.id).single();y=(s==null?void 0:s.name)||c.email||"Unknown User"}catch{y=c.email||"Unknown User"}let h=null,b=null;const m=document.getElementById("mealPictureFile");if(m&&m.files&&m.files[0]){const s=m.files[0],d=s.name.split(".").pop(),_=`meal_${Date.now()}_${Math.random().toString(36).substring(2)}.${d}`,{error:L}=await l.storage.from("meal-images").upload(_,s);if(L)throw L;const{data:{publicUrl:$}}=l.storage.from("meal-images").getPublicUrl(_);h=$,b=_}const C={number:`M${Date.now()}`,name:n.trim(),meal_type:a,cooking_instructions:(i==null?void 0:i.trim())||null,ingredients:JSON.stringify(u),total_carbs:w,total_fat:M,total_protein:D,user_id:c.id,created_by:y,image_url:h,picture:b},{data:E,error:v}=await l.from("meals").insert(C).select("id").single();if(v)throw v;if(!E||!E.id)throw new Error("Meal created, but failed to get new meal ID back from database.");o("Meal created successfully!","success"),t.reset(),await I();const U=document.querySelector('nav a[href="#meals"]');U&&U.click(),typeof window.closeEditMealModal=="function"&&window.closeEditMealModal()}catch(n){o(`Error: ${n.message}`,"error")}}function x(){u.length=0;const e=document.getElementById("ingredientsList");e&&(e.innerHTML="")}function o(e,t="success"){const r=document.getElementById("admin-message")||document.createElement("div");r.id="admin-message",r.className=`message ${t}`,r.textContent=e;const n=document.getElementById("admin")||document.body;r.parentElement||n.insertBefore(r,n.firstChild),r.style.display="block",setTimeout(()=>{r.style.display="none"},4e3)}window.refreshUserList=p;window.grantAdminRole=B;window.revokeAdminRole=N;window.updateRoleDisplay=A;export{B as grantAdminRole,H as initializeAdmin,p as refreshUserList,N as revokeAdminRole};
+//# sourceMappingURL=admin-BWk4I3wK.js.map

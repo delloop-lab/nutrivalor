@@ -1,6 +1,6 @@
 {
   "name": "nutrivalor",
-  "version": "1.0.0",
+  "version": "V0.9.002",
   "description": "Nutrivalor - Food Tracking Web Application with TypeScript",
   "type": "module",
   "scripts": {

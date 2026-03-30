@@ -199,6 +199,7 @@ async function updateProfile(): Promise<void> {
     }
     
     // Profile saved successfully
+    showMessage('Profile updated successfully!', 'success');
   } catch (error) {
     // Removed excessive logging for performance
     showMessage('Error saving profile. Please try again.', 'error');

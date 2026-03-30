@@ -230,10 +230,9 @@ function calculateTotals(items: any[]): any {
   };
 
   items.forEach(item => {
-    const quantity = item.quantity || 0;
-    totals.totalCarbs += (parseFloat(item.carbs) || 0) * quantity;
-    totals.totalFat += (parseFloat(item.fat) || 0) * quantity;
-    totals.totalProtein += (parseFloat(item.protein) || 0) * quantity;
+    totals.totalCarbs += (parseFloat(item.carbs) || 0);
+    totals.totalFat += (parseFloat(item.fat) || 0);
+    totals.totalProtein += (parseFloat(item.protein) || 0);
   });
 
   return totals;
@@ -462,7 +461,13 @@ export async function printShoppingList(): Promise<void> {
         .item-name { font-weight: bold; margin-bottom: 4px; }
         .item-details { font-size: 0.9em; color: #666; }
         .totals { margin-top: 30px; padding: 15px; background: #f5f5f5; border-radius: 5px; }
-        @media print { body { margin: 0; } }
+        @media print { 
+          body { margin: 0; }
+          @page { margin: 0.5in; }
+        }
+        @media screen {
+          body { margin: 20px; }
+        }
       </style>
     </head>
     <body>

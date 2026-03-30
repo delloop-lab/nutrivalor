@@ -356,16 +356,24 @@ function generateMealCardHTML(meal: Meal): string {
     let imagePath = null;
     let imageDisplayName = meal.name;
     
-    if (meal.picture) {
+    if (meal.image_url) {
+        // Use the full Supabase storage URL
+        imagePath = meal.image_url;
+        imageDisplayName = meal.name; // Use meal name instead of filename
+    } else if (meal.picture) {
         if (meal.picture.startsWith('data:image/')) {
             imagePath = meal.picture;
             imageDisplayName = meal.name; // Always use meal name
         } else if (meal.picture.startsWith('http')) {
             imagePath = meal.picture;
-            imageDisplayName = meal.picture.split('/').pop() || meal.name;
+            imageDisplayName = meal.name; // Use meal name instead of filename
         } else {
-            imagePath = `/images/${meal.picture}`;
-            imageDisplayName = meal.picture;
+            // This is a local filename, try to construct the Supabase URL
+            const { data: { publicUrl } } = supabase.storage
+                .from('meal-images')
+                .getPublicUrl(meal.picture);
+            imagePath = publicUrl;
+            imageDisplayName = meal.name; // Use meal name instead of filename
         }
     } else {
         // Try using meal name as fallback for images folder
@@ -799,6 +807,9 @@ function updateWeeklyMealPlanDisplay() {
     const mealTypeLabels = ['Breakfast', 'Lunch', 'Dinner', 'Snack'];
 
     let html = '';
+    let weeklyTotalCarbs = 0;
+    let weeklyTotalFat = 0;
+    let weeklyTotalProtein = 0;
     days.forEach(day => {
         const dayPlan = weeklyMealPlan[day] || {
             breakfast: [],
@@ -823,15 +834,29 @@ function updateWeeklyMealPlanDisplay() {
                         const meals = dayPlan[mealType] || [];
                         
                         // Calculate totals for this meal time
-                        const totalCarbs = meals.reduce((sum, meal) => sum + (meal.totalCarbs || 0), 0);
-                        const totalFat = meals.reduce((sum, meal) => sum + (meal.totalFat || 0), 0);
-                        const totalProtein = meals.reduce((sum, meal) => sum + (meal.totalProtein || 0), 0);
+                        const totalCarbs = meals.reduce((sum, meal) => {
+                            const mealCarbs = meal.ingredients?.reduce((ingSum, ing) => ingSum + (ing.carbs || 0), 0) || 0;
+                            return sum + mealCarbs;
+                        }, 0);
+                        const totalFat = meals.reduce((sum, meal) => {
+                            const mealFat = meal.ingredients?.reduce((ingSum, ing) => ingSum + (ing.fat || 0), 0) || 0;
+                            return sum + mealFat;
+                        }, 0);
+                        const totalProtein = meals.reduce((sum, meal) => {
+                            const mealProtein = meal.ingredients?.reduce((ingSum, ing) => ingSum + (ing.protein || 0), 0) || 0;
+                            return sum + mealProtein;
+                        }, 0);
                         
                         // Add to daily totals
                         dailyTotalCarbs += totalCarbs;
                         dailyTotalFat += totalFat;
                         dailyTotalProtein += totalProtein;
                         if (meals.length > 0) hasMeals = true;
+                        
+                        // Add to weekly totals
+                        weeklyTotalCarbs += totalCarbs;
+                        weeklyTotalFat += totalFat;
+                        weeklyTotalProtein += totalProtein;
                         
                         return `
                             <div class="meal-type">
@@ -878,7 +903,27 @@ function updateWeeklyMealPlanDisplay() {
         `;
     });
 
+    // Add weekly total row
+    html += `
+        <div class="day-plan">
+            <div class="day-header">
+                <div class="day-name" style="color: #3b82f6; font-weight: bold;">WEEKLY TOTAL</div>
+            </div>
+            <div class="meal-types">
+                <div class="daily-totals-column">
+                    <div class="daily-totals-values">
+                        <span class="daily-total-carbs">Carbs: ${formatNutrition(weeklyTotalCarbs)}g</span>
+                        <span class="daily-total-fat">Fat: ${formatNutrition(weeklyTotalFat)}g</span>
+                        <span class="daily-total-protein">Protein: ${formatNutrition(weeklyTotalProtein)}g</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+
     weeklyPlanGrid.innerHTML = html;
+    
+
     
     // After rendering HTML, check which meals have ingredients in shopping list
     updateMealShoppingCheckboxes();

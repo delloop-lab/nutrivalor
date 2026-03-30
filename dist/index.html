@@ -6,8 +6,8 @@
     <title>NutriValor - Value your Nutrition</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Poppins:wght@600;700&display=swap" rel="stylesheet">
     <link rel="icon" type="image/x-icon" href="/assets/favico-C-B4lnju.ico">
-  <script type="module" crossorigin src="/assets/main-M_9bQhuz.js"></script>
-  <link rel="stylesheet" crossorigin href="/assets/main-aNJlu02b.css">
+  <script type="module" crossorigin src="/assets/main-C2NuN4fr.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/main-BPYRP2Gd.css">
 </head>
 <body>
     <!-- Loading Screen -->
@@ -106,8 +106,8 @@
         <!-- Navigation -->
         <nav class="nav-menu">
             <div class="nav-tabs">
-                <button class="nav-tab active" onclick="showSection('food-tracker')" data-section="food-tracker">
-                    Food Tracker
+                <button class="nav-tab active" onclick="showSection('foods')" data-section="foods">
+                    Foods
                 </button>
                 <button class="nav-tab" onclick="showSection('meals')" data-section="meals">
                     Meals
@@ -115,16 +115,16 @@
                 <button class="nav-tab" onclick="showSection('shopping-list')" data-section="shopping-list">
                     Shopping List
                 </button>
-
                 <button class="nav-tab" onclick="showSection('weekly-meal-plan')" data-section="weekly-meal-plan">
                     Meal Plan
-                </button>
-                <button class="nav-tab" onclick="showSection('macro-calculator')" data-section="macro-calculator">
-                    Macro Calculator
                 </button>
                 <button class="nav-tab" onclick="showSection('weight-tracker')" data-section="weight-tracker">
                     Weight Tracker
                 </button>
+                <button class="nav-tab" onclick="showSection('macro-calculator')" data-section="macro-calculator">
+                    Macro Calculator
+                </button>
+                <button class="nav-tab" onclick="showSection('calculator')" data-section="calculator">Calculator</button>
                 <button class="nav-tab" onclick="showSection('settings')" data-section="settings">
                     Settings
                 </button>
@@ -137,14 +137,9 @@
         <!-- Main Container -->
         <div class="container">
             <!-- Food Tracker Section -->
-            <section id="food-tracker" class="content-section active">
+            <section id="foods" class="content-section active">
                 <div class="section-header">
-                    <h2>Food Tracker</h2>
-                </div>
-
-                <!-- Last Update Info -->
-                <div id="lastUpdateInfo" class="last-update-info" style="display: none;">
-                    <span class="last-update-text">Last Update: <span id="lastUpdateDate"></span></span>
+                    <h2>Foods</h2>
                 </div>
 
                 <!-- Category Filters -->
@@ -162,9 +157,7 @@
             <section id="meals" class="content-section">
                 <div class="section-header">
                     <h2>Meals</h2>
-                    <div class="section-actions">
-                        <!-- Removed Load Updated Meal Data and Clear Meals buttons -->
-                    </div>
+                    <!-- Removed Load Updated Meal Data and Clear Meals buttons -->
                 </div>
 
                 <!-- Last Update Info -->
@@ -194,12 +187,19 @@
                 </div>
 
                 <div id="shoppingItems" class="shopping-items">
-                    <p class="empty-state">Your shopping list is empty. Add items from the Food Tracker!</p>
+                    <p class="empty-state">Your shopping list is empty. Add items from the Foods!</p>
                 </div>
 
                 <div id="shoppingTotals" class="shopping-totals" style="display: none;"></div>
             </section>
 
+            <!-- Calculator Section -->
+            <section id="calculator" class="content-section">
+                <div class="section-header">
+                    <h2>Kitchen Conversion Toolkit</h2>
+                </div>
+                <div id="kitchenCalculatorContainer"></div>
+            </section>
 
 
             <!-- Meal Plan Section -->
@@ -567,7 +567,7 @@
                     <!-- Food Management Card -->
                     <div class="admin-card">
                         <h3>Food Database Management</h3>
-                        <p class="admin-description">Add new food items and edit existing foods in the database</p>
+                        <p class="admin-description">Add new food items and edit existing foods in the database.</p>
                         
                         <div class="two-column-layout">
                             <!-- Add Food Section -->
@@ -670,7 +670,7 @@
                                             Auto-backup created before each import
                                         </div>
                                     </div>
-                                    <p style="font-size: 0.8rem; color: #888; margin-top: 0.5rem;">💡 Test with a small edit first to verify the process works</p>
+                                    <p style="font-size: 0.8rem; color: #888; margin-top: 0.5rem;">This function not yet initiated</p>
                                 </div>
                             </div>
                         </div>
@@ -700,6 +700,7 @@
                                                     <option value="LUNCH">Lunch</option>
                                                     <option value="DINNER">Dinner</option>
                                                     <option value="SNACK">Snack</option>
+                                                    <option value="SAUCES">Sauces</option>
                                                     <option value="DESSERT">Dessert</option>
                                                 </select>
                                             </div>
@@ -820,13 +821,14 @@
 
     <!-- Footer -->
     <footer class="app-footer">
-        <p>Copyright © 2025 NutriValor. All rights reserved</p>
+        <span class="footer-version">V0.9.002</span>
+        <p>Application copyright © 2025 NutriValor. All rights reserved.</p>
     </footer>
 
     <!-- Vite TypeScript Entry Point -->
 
     <!-- SIMPLE EDIT FOOD MODAL -->
-    <div id="editFoodModal" class="modal">
+    <div id="editFoodModal" class="modal" style="display:none;">
         <div class="modal-content">
             <div class="modal-header">
                 <h3>Edit Food</h3>
@@ -924,7 +926,7 @@
     </div>
 
     <!-- SIMPLE EDIT MEAL MODAL -->
-    <div id="editMealModal" class="modal">
+    <div id="editMealModal" class="modal" style="display:none;">
         <div class="modal-content">
             <div class="modal-header">
                 <h3>Edit Meal</h3>
@@ -956,6 +958,7 @@
                             <option value="LUNCH">Lunch</option>
                             <option value="DINNER">Dinner</option>
                             <option value="SNACK">Snack</option>
+                            <option value="SAUCES">Sauces</option>
                             <option value="DESSERT">Dessert</option>
                         </select>
                     </div>
